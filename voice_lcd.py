@@ -12,6 +12,8 @@ import subprocess
 import socket
 import re
 import logging
+import logging.handlers
+import shutil
 from datetime import datetime
 
 sys.path.insert(0, '/home/morph/Desktop/LCD/venv/lib/python3.11/site-packages')
@@ -33,16 +35,11 @@ class VoiceLCDv2:
     def __init__(self, config_path="voice_config.json"):
         self.config_path = config_path
         self.logger = None  # Initialize logger first
+        self.loggers = {}   # Component loggers
         self.load_config()
         
-        # Setup logging
-        if self.config.get("advanced", {}).get("enable_logging", False):
-            log_file = self.config["advanced"].get("log_file", "voice_lcd.log")
-            logging.basicConfig(filename=log_file, level=logging.INFO,
-                              format='%(asctime)s - %(levelname)s - %(message)s')
-            self.logger = logging.getLogger(__name__)
-        else:
-            self.logger = None
+        # Setup enhanced logging system
+        self.setup_logging()
         
         # LCD setup
         self.setup_lcd()
@@ -55,11 +52,76 @@ class VoiceLCDv2:
         
         self.log("Voice LCD v2 initialized")
     
-    def log(self, message):
-        """Log message if logging enabled"""
+    def setup_logging(self):
+        """Setup enhanced logging system with rotation"""
+        # Check for new logging config, fall back to legacy
+        logging_config = self.config.get("logging")
+        if not logging_config:
+            # Legacy logging support
+            legacy = self.config.get("advanced", {})
+            if legacy.get("enable_logging", False):
+                log_file = legacy.get("log_file", "voice_lcd.log")
+                logging.basicConfig(filename=log_file, level=logging.INFO,
+                                  format='%(asctime)s - %(levelname)s - %(message)s')
+                self.logger = logging.getLogger(__name__)
+            return
+        
+        if not logging_config.get("enabled", False):
+            return
+        
+        # Setup main rotating logger
+        main_config = logging_config["main_log"]
+        log_file = main_config["file"]
+        max_bytes = main_config.get("max_file_size_mb", 10) * 1024 * 1024
+        backup_count = main_config.get("backup_count", 5)
+        log_format = main_config.get("format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        
+        # Clear any existing handlers
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+        
+        # Main rotating file handler
+        handler = logging.handlers.RotatingFileHandler(
+            log_file, maxBytes=max_bytes, backupCount=backup_count
+        )
+        handler.setFormatter(logging.Formatter(log_format))
+        
+        # Setup main logger
+        self.logger = logging.getLogger("voice_lcd_main")
+        self.logger.setLevel(getattr(logging, main_config.get("level", "INFO")))
+        self.logger.addHandler(handler)
+        
+        # Setup component loggers
+        component_config = logging_config.get("component_logs", {})
+        for component, config in component_config.items():
+            if config.get("enabled", True):
+                logger = logging.getLogger(f"voice_lcd_{component}")
+                logger.setLevel(getattr(logging, config.get("level", "INFO")))
+                if config.get("include_in_main", True):
+                    logger.addHandler(handler)
+                self.loggers[component] = logger
+    
+    def log(self, message, component="system"):
+        """Enhanced logging with component support"""
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
         if self.logger:
-            self.logger.info(message)
+            if component in self.loggers:
+                self.loggers[component].info(message)
+            else:
+                self.logger.info(message)
+    
+    def log_transcription(self, message):
+        """Log transcription-specific messages"""
+        self.log(message, "transcription")
+    
+    def log_hardware(self, message):
+        """Log hardware-specific messages"""
+        self.log(message, "hardware")
+    
+    def log_command(self, message):
+        """Log command execution messages"""
+        self.log(message, "commands")
     
     def load_config(self):
         """Load configuration from JSON file"""
@@ -91,19 +153,19 @@ class VoiceLCDv2:
                                  cols=hw["lcd_cols"], rows=hw["lcd_rows"])
                 self.lcd.clear()
                 self.has_display = True
-                self.log(f"LCD connected at {hw['lcd_i2c_address']}")
+                self.log_hardware(f"LCD connected at {hw['lcd_i2c_address']}")
             except Exception as e:
-                self.log(f"LCD setup failed: {e}")
+                self.log_hardware(f"LCD setup failed: {e}")
                 self.has_display = False
         else:
             self.has_display = False
-            self.log("LCD libraries not available")
+            self.log_hardware("LCD libraries not available")
     
     def setup_speech(self):
         """Initialize speech recognition"""
         if not HAS_VOSK:
             self.has_speech = False
-            self.log("Vosk not available")
+            self.log_hardware("Vosk not available")
             return
         
         voice_config = self.config["voice"]
@@ -111,19 +173,19 @@ class VoiceLCDv2:
         
         if not os.path.exists(model_path):
             self.has_speech = False
-            self.log(f"Speech model not found at {model_path}")
+            self.log_hardware(f"Speech model not found at {model_path}")
             return
         
         try:
-            self.log("Loading speech model... (30+ seconds)")
+            self.log_hardware("Loading speech model... (30+ seconds)")
             self.model = vosk.Model(model_path)
             
             hw = self.config["hardware"]
             self.rec = vosk.KaldiRecognizer(self.model, hw["audio_sample_rate"])
             self.has_speech = True
-            self.log("Speech recognition ready!")
+            self.log_hardware("Speech recognition ready!")
         except Exception as e:
-            self.log(f"Speech setup failed: {e}")
+            self.log_hardware(f"Speech setup failed: {e}")
             self.has_speech = False
     
     def display_text(self, line1="", line2=""):
@@ -204,6 +266,64 @@ class VoiceLCDv2:
             pass
         return "No Network"
     
+    def get_log_info(self):
+        """Get information about current log files"""
+        try:
+            log_config = self.config.get("logging", {})
+            if not log_config.get("enabled", False):
+                return "Logging disabled"
+            
+            log_file = log_config.get("main_log", {}).get("file", "voice_lcd.log")
+            if os.path.exists(log_file):
+                size = os.path.getsize(log_file) / (1024 * 1024)  # MB
+                return f"Log: {size:.1f}MB"
+            return "No log file found"
+        except Exception as e:
+            return f"Error: {str(e)[:20]}"
+    
+    def clean_logs(self):
+        """Force log rotation and cleanup"""
+        try:
+            if self.logger and hasattr(self.logger, 'handlers'):
+                for handler in self.logger.handlers:
+                    if hasattr(handler, 'doRollover'):
+                        handler.doRollover()
+                        return "Logs rotated"
+            return "No rotation needed"
+        except Exception as e:
+            return f"Error: {str(e)[:20]}"
+    
+    def get_system_health(self):
+        """Get system health information"""
+        try:
+            # Disk usage
+            disk = shutil.disk_usage("/")
+            used_percent = (disk.used / disk.total) * 100
+            free_gb = disk.free / (1024**3)
+            
+            # Memory info (if available)
+            try:
+                with open('/proc/meminfo', 'r') as f:
+                    meminfo = f.read()
+                mem_total = int([line for line in meminfo.split('\n') if 'MemTotal' in line][0].split()[1]) // 1024
+                mem_free = int([line for line in meminfo.split('\n') if 'MemAvailable' in line][0].split()[1]) // 1024
+                mem_used = mem_total - mem_free
+                mem_percent = (mem_used / mem_total) * 100
+                
+                return {
+                    "disk_used_percent": used_percent,
+                    "disk_free_gb": free_gb,
+                    "memory_used_percent": mem_percent,
+                    "memory_used_mb": mem_used
+                }
+            except:
+                return {
+                    "disk_used_percent": used_percent,
+                    "disk_free_gb": free_gb
+                }
+        except Exception as e:
+            return {"error": str(e)[:30]}
+    
     def execute_action(self, action_type, command_config, command_text=""):
         """Execute different types of actions"""
         if action_type == "show_ip":
@@ -256,6 +376,52 @@ class VoiceLCDv2:
                 self.display_text("Command Error:", str(e)[:16])
                 time.sleep(3)
         
+        elif action_type == "show_log_info":
+            log_info = self.get_log_info()
+            fmt = command_config.get("display_format", ["Log Status:", "{info}"])
+            self.display_text(fmt[0], log_info)
+            time.sleep(self.config["display"]["command_result_time"])
+            # Also print detailed info to console
+            if self.logger:
+                print(f"Log file details: {log_info}")
+        
+        elif action_type == "clean_logs":
+            fmt = command_config.get("display_format", ["Cleaning logs", "Please wait..."])
+            self.display_text(fmt[0], fmt[1])
+            result = self.clean_logs()
+            time.sleep(1)
+            self.display_text("Log Cleanup:", result)
+            time.sleep(self.config["display"]["command_result_time"])
+        
+        elif action_type == "system_health":
+            fmt = command_config.get("display_format", ["System Status:", "See details below"])
+            self.display_text(fmt[0], "Checking...")
+            health = self.get_system_health()
+            
+            if "error" in health:
+                self.display_text("System Error:", health["error"])
+            else:
+                # Show disk usage on LCD
+                disk_line = f"Disk: {health['disk_used_percent']:.0f}% used"
+                free_line = f"Free: {health['disk_free_gb']:.1f}GB"
+                self.display_text(disk_line, free_line)
+                
+                # Print detailed info to console
+                print(f"=== System Health ===")
+                print(f"Disk Usage: {health['disk_used_percent']:.1f}% used")
+                print(f"Free Space: {health['disk_free_gb']:.2f} GB")
+                if "memory_used_percent" in health:
+                    print(f"Memory Usage: {health['memory_used_percent']:.1f}%")
+                    print(f"Memory Used: {health['memory_used_mb']} MB")
+                
+                # Check thresholds and warn
+                log_config = self.config.get("logging", {})
+                threshold = log_config.get("maintenance", {}).get("disk_space_warning_threshold_percent", 90)
+                if health["disk_used_percent"] > threshold:
+                    print(f"WARNING: Disk usage above {threshold}%!")
+            
+            time.sleep(self.config["display"]["command_result_time"])
+        
         elif action_type == "clear_display":
             if self.has_display:
                 self.lcd.clear()
@@ -281,7 +447,7 @@ class VoiceLCDv2:
     def handle_command(self, text):
         """Process recognized speech"""
         text = text.strip()
-        self.log(f"Processing: '{text}'")
+        self.log_command(f"Processing: '{text}'")
         
         # Add to history
         if self.config["advanced"].get("enable_command_history", False):
@@ -294,7 +460,7 @@ class VoiceLCDv2:
         command_name, command_config = self.find_matching_command(text)
         
         if command_config:
-            self.log(f"Executing command: {command_name}")
+            self.log_command(f"Executing command: {command_name}")
             action = command_config["action"]
             self.execute_action(action, command_config, text)
         else:
@@ -334,6 +500,10 @@ class VoiceLCDv2:
                     text = result.get('text', '').strip()
                     
                     if text:
+                        # Log transcription if enabled
+                        if self.config.get("logging", {}).get("component_logs", {}).get("transcription", {}).get("enabled", True):
+                            self.log_transcription(f"Transcribed: '{text}'")
+                        
                         if show_all:
                             # Show what was heard
                             cols = self.config["hardware"]["lcd_cols"]

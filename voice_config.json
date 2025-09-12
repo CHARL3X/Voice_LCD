@@ -7,49 +7,50 @@
     "lcd_cols": 16,
     "lcd_rows": 2,
     "audio_sample_rate": 16000,
-    "audio_chunk_size": 4096
+    "audio_chunk_size": 2048
   },
   
   "display": {
-    "scroll_speed": 0.15,
-    "short_text_display_time": 3.0,
-    "command_result_time": 4.0,
-    "heard_text_cycles": 2,
-    "startup_message": ["Voice LCD Ready", "Say 'Pi' commands"],
+    "scroll_speed": 0.12,
+    "short_text_display_time": 2.5,
+    "command_result_time": 3.0,
+    "heard_text_cycles": 1,
+    "startup_message": ["Voice LCD v2", "Say 'Pi' or 'Pie'"],
     "listening_message": ["Ready", ""],
-    "error_message": ["Error occurred", "Check logs"]
+    "error_message": ["Not recognized", "Try 'Pi help'"]
   },
   
   "voice": {
-    "wake_words": ["pi", "pie", "hey pi", "ok pi"],
+    "wake_words": ["pi", "pie"],
     "model_path": "/home/morph/Desktop/LCD/models/vosk-model-small-en-us-0.15",
     "show_all_transcriptions": true,
-    "command_timeout": 10.0
+    "command_timeout": 8.0,
+    "confidence_threshold": 0.3
   },
   
   "commands": {
     "show ip": {
       "action": "show_ip",
-      "aliases": ["show i p", "what's my ip", "ip address", "show address"],
+      "aliases": ["show i p", "what's my ip", "ip address", "show address", "i p", "network", "my ip", "show network", "address"],
       "display_format": ["IP Address:", "{ip}"]
     },
     
     "show time": {
       "action": "show_time", 
-      "aliases": ["what time", "current time", "show clock"],
+      "aliases": ["what time", "current time", "show clock", "time", "clock", "what's the time", "tell time"],
       "time_format": "%H:%M:%S",
       "date_format": "%m/%d/%y"
     },
     
     "tell joke": {
       "action": "tell_joke",
-      "aliases": ["tell a joke", "joke", "make me laugh", "funny"],
+      "aliases": ["tell a joke", "joke", "make me laugh", "funny", "be funny", "tell me a joke", "comedy", "laugh"],
       "scroll_duration": 8
     },
     
     "clear": {
       "action": "clear_display",
-      "aliases": ["clear screen", "clear display", "blank"]
+      "aliases": ["clear screen", "clear display", "blank", "clean", "wipe", "reset display", "empty"]
     },
     
     "hello": {
@@ -61,7 +62,7 @@
     
     "weather": {
       "action": "run_command", 
-      "aliases": ["show weather", "what's the weather"],
+      "aliases": ["show weather", "what's the weather", "weather", "temperature outside", "how's the weather", "weather report"],
       "command": "curl -s 'wttr.in/?format=%l:+%c+%t'",
       "display_format": ["Weather:", "{output}"]
     },
@@ -100,6 +101,59 @@
       "command": "echo 'Shutdown in 10s!' && sleep 10 && sudo shutdown -h now",
       "display_format": ["Shutting down", "in 10 seconds..."],
       "confirmation_required": true
+    },
+    
+    "show logs": {
+      "action": "show_log_info",
+      "aliases": ["log status", "check logs", "log info", "logs", "show log", "log size"],
+      "display_format": ["Log Status:", "See console output"]
+    },
+    
+    "clean logs": {
+      "action": "clean_logs",
+      "aliases": ["rotate logs", "clear logs", "cleanup logs", "clean log", "fix logs"],
+      "display_format": ["Cleaning logs", "Please wait..."]
+    },
+    
+    "system status": {
+      "action": "system_health",
+      "aliases": ["health check", "system info", "disk space", "status", "health", "system", "memory", "storage"],
+      "display_format": ["System Status:", "See details below"]
+    },
+    
+    "help": {
+      "action": "custom_message",
+      "aliases": ["commands", "what can you do", "options"],
+      "message": "Try: time, ip, weather, joke, status, clear, help",
+      "scroll_duration": 8
+    },
+    
+    "restart": {
+      "action": "run_command",
+      "aliases": ["reboot", "restart system"],
+      "command": "echo 'Restarting in 5s!' && sleep 5 && sudo reboot",
+      "display_format": ["Restarting", "in 5 seconds..."]
+    },
+    
+    "volume up": {
+      "action": "run_command", 
+      "aliases": ["louder", "turn up"],
+      "command": "amixer set PCM 10%+",
+      "display_format": ["Volume", "Increased"]
+    },
+    
+    "volume down": {
+      "action": "run_command",
+      "aliases": ["quieter", "turn down"], 
+      "command": "amixer set PCM 10%-",
+      "display_format": ["Volume", "Decreased"]
+    },
+    
+    "wifi": {
+      "action": "run_command",
+      "aliases": ["network status", "connection"],
+      "command": "iwgetid -r 2>/dev/null || echo 'Not connected'",
+      "display_format": ["WiFi:", "{output}"]
     }
   },
   
@@ -134,12 +188,60 @@
     ]
   },
   
+  "logging": {
+    "_comment": "Enhanced logging with rotation and component separation",
+    "enabled": true,
+    "main_log": {
+      "file": "/home/morph/Desktop/LCD/voice_lcd.log",
+      "level": "INFO",
+      "max_file_size_mb": 10,
+      "backup_count": 5,
+      "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    },
+    "component_logs": {
+      "transcription": {
+        "enabled": true,
+        "level": "INFO",
+        "include_in_main": true
+      },
+      "hardware": {
+        "enabled": true,
+        "level": "INFO", 
+        "include_in_main": true
+      },
+      "commands": {
+        "enabled": true,
+        "level": "INFO",
+        "include_in_main": true
+      },
+      "system": {
+        "enabled": true,
+        "level": "INFO",
+        "include_in_main": true
+      }
+    },
+    "rotation": {
+      "method": "size",
+      "compress_old": true
+    },
+    "maintenance": {
+      "auto_cleanup_days": 30,
+      "max_total_size_mb": 100,
+      "disk_space_warning_threshold_percent": 90
+    }
+  },
+  
   "advanced": {
-    "enable_logging": true,
-    "log_file": "/home/morph/Desktop/LCD/voice_lcd.log",
+    "_comment": "Advanced system settings",
     "reload_config_on_change": true,
     "enable_custom_wake_sounds": false,
     "enable_command_history": true,
-    "max_command_history": 50
+    "max_command_history": 50,
+    
+    "_legacy_logging": {
+      "_comment": "Legacy settings - use 'logging' section above instead",
+      "enable_logging": true,
+      "log_file": "/home/morph/Desktop/LCD/voice_lcd.log"
+    }
   }
 }
