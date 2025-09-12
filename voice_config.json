@@ -1,0 +1,145 @@
+{
+  "_comment": "Voice LCD Configuration - Customize your voice-activated display!",
+  "_usage": "Modify commands, timings, messages, and hardware settings below",
+  
+  "hardware": {
+    "lcd_i2c_address": "0x3f",
+    "lcd_cols": 16,
+    "lcd_rows": 2,
+    "audio_sample_rate": 16000,
+    "audio_chunk_size": 4096
+  },
+  
+  "display": {
+    "scroll_speed": 0.15,
+    "short_text_display_time": 3.0,
+    "command_result_time": 4.0,
+    "heard_text_cycles": 2,
+    "startup_message": ["Voice LCD Ready", "Listening..."],
+    "listening_message": ["Voice LCD Ready", "Listening..."],
+    "error_message": ["Error occurred", "Check logs"]
+  },
+  
+  "voice": {
+    "wake_words": ["pi", "pie", "hey pi", "ok pi"],
+    "model_path": "/home/morph/Desktop/LCD/models/vosk-model-small-en-us-0.15",
+    "show_all_transcriptions": true,
+    "command_timeout": 10.0
+  },
+  
+  "commands": {
+    "show ip": {
+      "action": "show_ip",
+      "aliases": ["show i p", "what's my ip", "ip address", "show address"],
+      "display_format": ["IP Address:", "{ip}"]
+    },
+    
+    "show time": {
+      "action": "show_time", 
+      "aliases": ["what time", "current time", "show clock"],
+      "time_format": "%H:%M:%S",
+      "date_format": "%m/%d/%y"
+    },
+    
+    "tell joke": {
+      "action": "tell_joke",
+      "aliases": ["tell a joke", "joke", "make me laugh", "funny"],
+      "scroll_duration": 8
+    },
+    
+    "clear": {
+      "action": "clear_display",
+      "aliases": ["clear screen", "clear display", "blank"]
+    },
+    
+    "hello": {
+      "action": "custom_message",
+      "aliases": ["hi", "hey", "greetings"],
+      "message": "Hello there! How can I help you today?",
+      "scroll_duration": 5
+    },
+    
+    "weather": {
+      "action": "run_command", 
+      "aliases": ["show weather", "what's the weather"],
+      "command": "curl -s 'wttr.in/?format=%l:+%c+%t'",
+      "display_format": ["Weather:", "{output}"]
+    },
+    
+    "uptime": {
+      "action": "run_command",
+      "aliases": ["how long running", "system uptime"],
+      "command": "uptime -p",
+      "display_format": ["Uptime:", "{output}"]
+    },
+    
+    "cpu temp": {
+      "action": "run_command",
+      "aliases": ["cpu temperature", "how hot", "temperature"],
+      "command": "vcgencmd measure_temp | cut -d= -f2",
+      "display_format": ["CPU Temp:", "{output}"]
+    },
+    
+    "disk space": {
+      "action": "run_command", 
+      "aliases": ["disk usage", "storage space", "how much space"],
+      "command": "df -h / | awk 'NR==2{print $4\" free\"}'",
+      "display_format": ["Disk Space:", "{output}"]
+    },
+    
+    "random number": {
+      "action": "custom_message",
+      "aliases": ["pick a number", "random", "give me a number"],
+      "message": "Your number: {random_1_100}",
+      "scroll_duration": 3
+    },
+    
+    "shutdown": {
+      "action": "run_command",
+      "aliases": ["power off", "turn off", "shut down"],
+      "command": "echo 'Shutdown in 10s!' && sleep 10 && sudo shutdown -h now",
+      "display_format": ["Shutting down", "in 10 seconds..."],
+      "confirmation_required": true
+    }
+  },
+  
+  "messages": {
+    "jokes": [
+      "Why don't robots ever panic? They have nerves of steel!",
+      "What did the Pi say to the breadboard? You're shocking!",
+      "Why was the LCD screen tired? It was pixel-ated!",
+      "How do you comfort a JavaScript bug? You console it!",
+      "Why don't programmers like nature? It has too many bugs!",
+      "What's a computer's favorite snack? Microchips!",
+      "Why do programmers prefer dark mode? Light attracts bugs!",
+      "What did the router say to the doctor? It hurts when IP!",
+      "Why don't computers take their hats off? They have bad CAPS LOCK!",
+      "What's the object-oriented way to become wealthy? Inheritance!"
+    ],
+    
+    "greetings": [
+      "Hello there! How can I help you today?",
+      "Hey! Ready to assist you!",
+      "Greetings! What can I do for you?",
+      "Hi! I'm here and listening!",
+      "Welcome! How may I help?"
+    ],
+    
+    "error_responses": [
+      "Sorry, I didn't catch that. Try again?",
+      "Could you repeat that command?",
+      "I'm not sure what you meant.",
+      "Command not recognized. Try 'Pi help' for options.",
+      "Hmm, I didn't understand that."
+    ]
+  },
+  
+  "advanced": {
+    "enable_logging": true,
+    "log_file": "/home/morph/Desktop/LCD/voice_lcd.log",
+    "reload_config_on_change": true,
+    "enable_custom_wake_sounds": false,
+    "enable_command_history": true,
+    "max_command_history": 50
+  }
+}

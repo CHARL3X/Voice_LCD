@@ -1,0 +1,80 @@
+{
+  "_comment": "Smart Home Voice LCD - Home automation focused",
+  
+  "hardware": {
+    "lcd_i2c_address": "0x3f",
+    "lcd_cols": 16,
+    "lcd_rows": 2
+  },
+  
+  "display": {
+    "scroll_speed": 0.12,
+    "startup_message": ["Smart Home LCD", "Ready for commands"],
+    "listening_message": ["Home Control", "Listening..."]
+  },
+  
+  "voice": {
+    "wake_words": ["house", "home", "pi"],
+    "model_path": "/home/morph/Desktop/LCD/models/vosk-model-small-en-us-0.15",
+    "show_all_transcriptions": true
+  },
+  
+  "commands": {
+    "lights on": {
+      "action": "custom_message",
+      "aliases": ["turn on lights", "lights"],
+      "message": "Lights ON! (simulated)",
+      "scroll_duration": 3
+    },
+    
+    "lights off": {
+      "action": "custom_message", 
+      "aliases": ["turn off lights", "darkness"],
+      "message": "Lights OFF! (simulated)",
+      "scroll_duration": 3
+    },
+    
+    "temperature": {
+      "action": "run_command",
+      "aliases": ["temp", "how hot", "how cold"],
+      "command": "vcgencmd measure_temp | cut -d= -f2",
+      "display_format": ["Room Temp:", "{output} (CPU)"]
+    },
+    
+    "security status": {
+      "action": "custom_message",
+      "aliases": ["security", "alarm status", "is secure"],
+      "message": "All secure! Doors locked, alarm set.",
+      "scroll_duration": 5
+    },
+    
+    "energy usage": {
+      "action": "run_command",
+      "aliases": ["power usage", "energy", "consumption"],
+      "command": "echo '42.3W current'",
+      "display_format": ["Power Usage:", "{output}"]
+    },
+    
+    "goodnight": {
+      "action": "custom_message",
+      "aliases": ["good night", "sleep mode", "bedtime"],
+      "message": "Goodnight! Activating sleep mode...",
+      "scroll_duration": 4
+    },
+    
+    "good morning": {
+      "action": "custom_message",
+      "aliases": ["morning", "wake up", "start day"],
+      "message": "Good morning! Welcome to your smart home!",
+      "scroll_duration": 5
+    }
+  },
+  
+  "messages": {
+    "error_responses": [
+      "Smart home command not found",
+      "Try: lights, temperature, security",
+      "Unknown home automation command"
+    ]
+  }
+}

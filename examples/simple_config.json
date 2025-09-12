@@ -1,0 +1,65 @@
+{
+  "_comment": "Simplified Voice LCD Config - Just the basics!",
+  
+  "hardware": {
+    "lcd_i2c_address": "0x3f",
+    "lcd_cols": 16,
+    "lcd_rows": 2
+  },
+  
+  "display": {
+    "scroll_speed": 0.2,
+    "short_text_display_time": 4.0,
+    "startup_message": ["Simple Voice LCD", "Say 'Pi help'"],
+    "listening_message": ["Listening...", "Try 'Pi time'"]
+  },
+  
+  "voice": {
+    "wake_words": ["pi", "pie"],
+    "model_path": "/home/morph/Desktop/LCD/models/vosk-model-small-en-us-0.15",
+    "show_all_transcriptions": true
+  },
+  
+  "commands": {
+    "help": {
+      "action": "custom_message",
+      "message": "Try: time, joke, ip, clear, hello, weather",
+      "scroll_duration": 6
+    },
+    
+    "time": {
+      "action": "show_time"
+    },
+    
+    "joke": {
+      "action": "tell_joke"
+    },
+    
+    "ip": {
+      "action": "show_ip"
+    },
+    
+    "clear": {
+      "action": "clear_display"
+    },
+    
+    "hello": {
+      "action": "custom_message",
+      "message": "Hello! Nice to meet you!"
+    },
+    
+    "weather": {
+      "action": "run_command",
+      "command": "curl -s 'wttr.in/?format=%c+%t' 2>/dev/null || echo 'No internet'",
+      "display_format": ["Weather:", "{output}"]
+    }
+  },
+  
+  "messages": {
+    "jokes": [
+      "Why don't robots panic? Nerves of steel!",
+      "What's a computer's favorite snack? Chips!",
+      "Why do programmers prefer dark mode? Light attracts bugs!"
+    ]
+  }
+}
