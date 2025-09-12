@@ -32,6 +32,7 @@ except ImportError:
 class VoiceLCDv2:
     def __init__(self, config_path="voice_config.json"):
         self.config_path = config_path
+        self.logger = None  # Initialize logger first
         self.load_config()
         
         # Setup logging
@@ -351,9 +352,9 @@ class VoiceLCDv2:
                         if wake_detected:
                             self.handle_command(text)
                         
-                        # Return to listening state
-                        listening = self.config["display"]["listening_message"] 
-                        self.display_text(listening[0], listening[1])
+                        # Return to ready state (don't overwrite transcriptions)
+                        # Only clear if no recent transcription
+                        time.sleep(0.5)
                         
         except KeyboardInterrupt:
             self.log("Stopped by user")

@@ -15,8 +15,8 @@
     "short_text_display_time": 3.0,
     "command_result_time": 4.0,
     "heard_text_cycles": 2,
-    "startup_message": ["Voice LCD Ready", "Listening..."],
-    "listening_message": ["Voice LCD Ready", "Listening..."],
+    "startup_message": ["Voice LCD Ready", "Say 'Pi' commands"],
+    "listening_message": ["Ready", ""],
     "error_message": ["Error occurred", "Check logs"]
   },
   
