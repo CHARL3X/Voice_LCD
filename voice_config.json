@@ -6,7 +6,7 @@
     "lcd_i2c_address": "0x3f",
     "lcd_cols": 16,
     "lcd_rows": 2,
-    "audio_sample_rate": 16000,
+    "audio_sample_rate": 22050,
     "audio_chunk_size": 2048
   },
   
@@ -21,7 +21,7 @@
   },
   
   "voice": {
-    "wake_words": ["pi", "pie"],
+    "wake_words": ["pi", "pie", "pied", "computer"],
     "model_path": "/home/morph/Desktop/LCD/models/vosk-model-small-en-us-0.15",
     "show_all_transcriptions": true,
     "command_timeout": 8.0,
@@ -31,7 +31,7 @@
   "commands": {
     "show ip": {
       "action": "show_ip",
-      "aliases": ["show i p", "what's my ip", "ip address", "show address", "i p", "network", "my ip", "show network", "address"],
+      "aliases": ["show i p", "what's my ip", "ip address", "show address", "i p", "network", "my ip", "show network", "address", "shell i p", "shell ip", "shall i p", "shall ip", "phil ip", "show id"],
       "display_format": ["IP Address:", "{ip}"]
     },
     
@@ -62,7 +62,7 @@
     
     "weather": {
       "action": "run_command", 
-      "aliases": ["show weather", "what's the weather", "weather", "temperature outside", "how's the weather", "weather report"],
+      "aliases": ["show weather", "what's the weather", "weather", "temperature outside", "how's the weather", "weather report", "whether"],
       "command": "curl -s 'wttr.in/?format=%l:+%c+%t'",
       "display_format": ["Weather:", "{output}"]
     },
@@ -119,6 +119,19 @@
       "action": "system_health",
       "aliases": ["health check", "system info", "disk space", "status", "health", "system", "memory", "storage"],
       "display_format": ["System Status:", "See details below"]
+    },
+    
+    "shell i away": {
+      "action": "show_ip",
+      "aliases": ["shell i way", "shell away"],
+      "display_format": ["IP Address:", "{ip}"]
+    },
+    
+    "pied": {
+      "action": "custom_message",
+      "aliases": ["pay", "paid"],
+      "message": "Did you mean 'Pi'? Try: Pi time, Pi weather, Pi help",
+      "scroll_duration": 6
     },
     
     "help": {
