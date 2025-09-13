@@ -14,6 +14,8 @@ import re
 import logging
 import logging.handlers
 import shutil
+import struct
+import array
 from datetime import datetime
 
 sys.path.insert(0, '/home/morph/Desktop/LCD/venv/lib/python3.11/site-packages')
@@ -49,6 +51,9 @@ class VoiceLCDv2:
         
         # Command history
         self.command_history = []
+        
+        # Ring buffer initialization
+        self.init_ring_buffer()
         
         self.log("Voice LCD v2 initialized")
     
@@ -187,6 +192,105 @@ class VoiceLCDv2:
         except Exception as e:
             self.log_hardware(f"Speech setup failed: {e}")
             self.has_speech = False
+    
+    def init_ring_buffer(self):
+        """Initialize ring buffer state variables"""
+        ring_config = self.config.get("voice", {}).get("ring_buffer", {})
+        
+        self.ring_buffer_enabled = ring_config.get("enabled", False)
+        self.silence_threshold = ring_config.get("silence_threshold", 0.01)
+        self.silence_duration = ring_config.get("silence_duration", 3.0)
+        self.max_reset_interval = ring_config.get("max_reset_interval", 30.0)
+        self.text_buffer_size = ring_config.get("text_buffer_size", 50)
+        
+        # State tracking
+        self.silence_start_time = None
+        self.last_reset_time = time.time()
+        self.consecutive_silence_chunks = 0
+        self.recent_transcriptions = []
+        
+        if self.ring_buffer_enabled:
+            self.log("Ring buffer enabled - audio processing delays will be minimized")
+        else:
+            self.log("Ring buffer disabled - using standard processing")
+    
+    def calculate_audio_rms(self, audio_data):
+        """Calculate RMS (Root Mean Square) of audio data to detect silence"""
+        try:
+            # Convert bytes to array of 16-bit integers
+            audio_array = array.array('h', audio_data)
+            
+            # Calculate RMS
+            sum_squares = sum(sample * sample for sample in audio_array)
+            rms = (sum_squares / len(audio_array)) ** 0.5
+            
+            # Normalize to 0-1 range (assuming 16-bit audio)
+            return rms / 32768.0
+        except:
+            return 0.0
+    
+    def should_reset_recognizer(self, audio_rms):
+        """Determine if recognizer should be reset based on silence detection"""
+        if not self.ring_buffer_enabled:
+            return False
+        
+        current_time = time.time()
+        is_silence = audio_rms < self.silence_threshold
+        
+        if is_silence:
+            if self.silence_start_time is None:
+                self.silence_start_time = current_time
+            
+            silence_duration = current_time - self.silence_start_time
+            if silence_duration >= self.silence_duration:
+                return True
+        else:
+            # Reset silence tracking when sound is detected
+            self.silence_start_time = None
+        
+        # Force reset if max interval exceeded
+        time_since_reset = current_time - self.last_reset_time
+        if time_since_reset >= self.max_reset_interval:
+            return True
+        
+        return False
+    
+    def reset_speech_recognizer(self):
+        """Reset the Vosk recognizer to clear audio buffer"""
+        if self.has_speech:
+            try:
+                self.rec.Reset()
+                self.last_reset_time = time.time()
+                self.silence_start_time = None
+                self.log_transcription("Speech recognizer reset - audio buffer cleared")
+                return True
+            except Exception as e:
+                self.log_transcription(f"Failed to reset recognizer: {e}")
+                return False
+        return False
+    
+    def get_ring_buffer_stats(self):
+        """Get ring buffer performance statistics"""
+        if not self.ring_buffer_enabled:
+            return {"status": "disabled"}
+        
+        current_time = time.time()
+        time_since_reset = current_time - self.last_reset_time
+        
+        stats = {
+            "status": "enabled",
+            "time_since_last_reset": round(time_since_reset, 1),
+            "recent_transcriptions_count": len(self.recent_transcriptions),
+            "silence_threshold": self.silence_threshold,
+            "silence_duration_target": self.silence_duration,
+            "max_reset_interval": self.max_reset_interval,
+            "is_currently_silent": self.silence_start_time is not None
+        }
+        
+        if self.silence_start_time:
+            stats["current_silence_duration"] = round(current_time - self.silence_start_time, 1)
+        
+        return stats
     
     def display_text(self, line1="", line2=""):
         """Display text on LCD"""
@@ -414,6 +518,18 @@ class VoiceLCDv2:
                     print(f"Memory Usage: {health['memory_used_percent']:.1f}%")
                     print(f"Memory Used: {health['memory_used_mb']} MB")
                 
+                # Ring buffer stats
+                ring_stats = self.get_ring_buffer_stats()
+                print(f"\n=== Ring Buffer Status ===")
+                if ring_stats["status"] == "enabled":
+                    print(f"Status: Enabled - Preventing audio delays")
+                    print(f"Time since last reset: {ring_stats['time_since_last_reset']}s")
+                    print(f"Recent transcriptions: {ring_stats['recent_transcriptions_count']}")
+                    if ring_stats["is_currently_silent"]:
+                        print(f"Currently silent for: {ring_stats.get('current_silence_duration', 0)}s")
+                else:
+                    print(f"Status: Disabled - Using standard processing")
+                
                 # Check thresholds and warn
                 log_config = self.config.get("logging", {})
                 threshold = log_config.get("maintenance", {}).get("disk_space_warning_threshold_percent", 90)
@@ -495,11 +611,28 @@ class VoiceLCDv2:
         try:
             while True:
                 data = stream.read(hw["audio_chunk_size"], exception_on_overflow=False)
+                
+                # Ring buffer: Calculate audio level and check for reset
+                if self.ring_buffer_enabled:
+                    audio_rms = self.calculate_audio_rms(data)
+                    if self.should_reset_recognizer(audio_rms):
+                        self.reset_speech_recognizer()
+                
                 if self.rec.AcceptWaveform(data):
                     result = json.loads(self.rec.Result())
                     text = result.get('text', '').strip()
                     
                     if text:
+                        # Ring buffer: Add to recent transcriptions buffer
+                        if self.ring_buffer_enabled:
+                            self.recent_transcriptions.append({
+                                'text': text,
+                                'timestamp': time.time()
+                            })
+                            # Trim buffer to max size
+                            if len(self.recent_transcriptions) > self.text_buffer_size:
+                                self.recent_transcriptions.pop(0)
+                        
                         # Log transcription if enabled
                         if self.config.get("logging", {}).get("component_logs", {}).get("transcription", {}).get("enabled", True):
                             self.log_transcription(f"Transcribed: '{text}'")
