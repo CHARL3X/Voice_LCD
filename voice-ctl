@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# Voice LCD Control Script
+
+case "$1" in
+    start)
+        echo "🚀 Starting Voice LCD service..."
+        sudo systemctl start voice-lcd.service
+        sleep 3
+        sudo systemctl status voice-lcd.service --no-pager
+        ;;
+    stop)
+        echo "⏹️  Stopping Voice LCD service..."
+        sudo systemctl stop voice-lcd.service
+        ;;
+    restart)
+        echo "🔄 Restarting Voice LCD service..."
+        sudo systemctl restart voice-lcd.service
+        sleep 3
+        sudo systemctl status voice-lcd.service --no-pager
+        ;;
+    status)
+        echo "📊 Voice LCD service status:"
+        sudo systemctl status voice-lcd.service --no-pager
+        ;;
+    logs)
+        echo "📝 Recent Voice LCD logs:"
+        sudo journalctl -u voice-lcd.service -n 20 --no-pager
+        ;;
+    enable)
+        echo "✅ Enabling Voice LCD to start on boot..."
+        sudo systemctl enable voice-lcd.service
+        ;;
+    disable)
+        echo "❌ Disabling Voice LCD auto-start..."
+        sudo systemctl disable voice-lcd.service
+        ;;
+    run)
+        echo "🎤 Running Voice LCD directly (Ctrl+C to stop)..."
+        cd /home/morph/Desktop/LCD
+        source venv/bin/activate
+        python voice_lcd.py
+        ;;
+    *)
+        echo "Voice LCD Control Script"
+        echo ""
+        echo "Usage: $0 {start|stop|restart|status|logs|enable|disable|run}"
+        echo ""
+        echo "Commands:"
+        echo "  start    - Start the voice LCD service"
+        echo "  stop     - Stop the voice LCD service" 
+        echo "  restart  - Restart the voice LCD service"
+        echo "  status   - Show service status"
+        echo "  logs     - Show recent logs"
+        echo "  enable   - Enable auto-start on boot"
+        echo "  disable  - Disable auto-start"
+        echo "  run      - Run directly (for testing)"
+        echo ""
+        exit 1
+        ;;
+esac
