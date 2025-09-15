@@ -22,7 +22,7 @@
   
   "voice": {
     "wake_words": ["pi", "pie", "pied", "computer"],
-    "model_path": "/home/morph/Desktop/LCD/models/vosk-model-en-us-0.22-lgraph",
+    "model_path": "/home/morph/Desktop/LCD/models/vosk-model-small-en-us-0.15",
     "show_all_transcriptions": true,
     "command_timeout": 8.0,
     "confidence_threshold": 0.3,
@@ -211,7 +211,7 @@
   
   "logging": {
     "_comment": "Enhanced logging with rotation and component separation",
-    "enabled": true,
+    "enabled": false,
     "main_log": {
       "file": "/home/morph/Desktop/LCD/voice_lcd.log",
       "level": "INFO",
