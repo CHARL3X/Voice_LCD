@@ -33,6 +33,158 @@ try:
 except ImportError:
     HAS_LCD = False
 
+try:
+    from luma.core.interface.serial import i2c
+    from luma.core.render import canvas
+    from luma.oled.device import ssd1306
+    import smbus2
+    HAS_OLED = True
+except ImportError:
+    HAS_OLED = False
+
+class OLEDVoiceDisplay:
+    """OLED display optimized for voice transcription on tiny 128x32 screen"""
+    
+    def __init__(self):
+        self.device = None
+        self.width = 128
+        self.height = 32
+        self.current_text = ""
+        self.scroll_position = 0
+        self.scroll_timer = 0
+        self.status_message = "Voice: Ready"
+        
+    def initialize(self):
+        """Initialize OLED device for voice display"""
+        try:
+            # Try primary OLED addresses
+            for addr in [0x3D, 0x3C]:
+                try:
+                    serial = i2c(port=1, address=addr)
+                    self.device = ssd1306(serial, width=self.width, height=self.height)
+                    self.clear()
+                    self.show_status("Voice: Ready")
+                    return True
+                except Exception as e:
+                    continue
+            return False
+        except Exception as e:
+            return False
+    
+    def clear(self):
+        """Clear the OLED display"""
+        if self.device:
+            self.device.clear()
+    
+    def show_status(self, status):
+        """Show status message"""
+        self.status_message = status
+        if self.device:
+            with canvas(self.device) as draw:
+                # Status line at top
+                draw.text((0, 0), self.status_message[:21], fill="white")
+                # Divider line
+                draw.line((0, 10, self.width-1, 10), fill="white")
+    
+    def show_transcription(self, text):
+        """Show transcribed text with smart wrapping and scrolling"""
+        if not self.device:
+            return
+            
+        self.current_text = text
+        wrapped_lines = self.wrap_text(text, 21)  # ~21 chars per line on 128px width
+        
+        with canvas(self.device) as draw:
+            # Status line
+            draw.text((0, 0), self.status_message[:21], fill="white")
+            draw.line((0, 10, self.width-1, 10), fill="white")
+            
+            # Text area (lines 2-4, starting at y=12)
+            y_start = 12
+            line_height = 8
+            max_visible_lines = 2  # Can fit ~2.5 lines, use 2 for readability
+            
+            if len(wrapped_lines) <= max_visible_lines:
+                # Text fits without scrolling
+                for i, line in enumerate(wrapped_lines):
+                    if i < max_visible_lines:
+                        draw.text((2, y_start + i * line_height), line, fill="white")
+            else:
+                # Need scrolling - show scrolling indicator
+                draw.text((self.width-10, y_start), ">>", fill="white")
+                
+                # Show subset of lines based on scroll position
+                start_line = self.scroll_position // 20  # Scroll every 20 frames (1 second at 20fps)
+                for i in range(max_visible_lines):
+                    line_idx = start_line + i
+                    if line_idx < len(wrapped_lines):
+                        draw.text((2, y_start + i * line_height), wrapped_lines[line_idx], fill="white")
+                
+                # Auto-scroll through lines
+                self.scroll_timer += 1
+                if self.scroll_timer >= 40:  # 2 seconds per line
+                    self.scroll_position += 20
+                    if self.scroll_position >= len(wrapped_lines) * 20:
+                        self.scroll_position = 0
+                    self.scroll_timer = 0
+    
+    def show_command_result(self, result_text):
+        """Show command execution result"""
+        self.show_status("Voice: Result")
+        if not self.device:
+            return
+            
+        wrapped_lines = self.wrap_text(result_text, 21)
+        
+        with canvas(self.device) as draw:
+            # Status
+            draw.text((0, 0), "Voice: Result", fill="white")
+            draw.line((0, 10, self.width-1, 10), fill="white")
+            
+            # Result text
+            y_start = 12
+            line_height = 8
+            
+            for i, line in enumerate(wrapped_lines[:2]):  # Show first 2 lines
+                draw.text((2, y_start + i * line_height), line, fill="white")
+    
+    def wrap_text(self, text, chars_per_line):
+        """Wrap text to fit display width with word boundaries"""
+        if not text:
+            return []
+            
+        words = text.split()
+        lines = []
+        current_line = ""
+        
+        for word in words:
+            # Check if adding word would exceed line length
+            test_line = current_line + (" " if current_line else "") + word
+            
+            if len(test_line) <= chars_per_line:
+                current_line = test_line
+            else:
+                # Start new line
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+                
+                # Handle very long words
+                while len(current_line) > chars_per_line:
+                    lines.append(current_line[:chars_per_line])
+                    current_line = current_line[chars_per_line:]
+        
+        if current_line:
+            lines.append(current_line)
+        
+        return lines
+    
+    def cleanup(self):
+        """Cleanup OLED resources"""
+        if self.device:
+            self.clear()
+
+
 class VoiceLCDv2:
     def __init__(self, config_path="voice_config.json"):
         self.config_path = config_path
@@ -43,8 +195,8 @@ class VoiceLCDv2:
         # Setup enhanced logging system
         self.setup_logging()
         
-        # LCD setup
-        self.setup_lcd()
+        # Display setup (LCD with OLED fallback)
+        self.setup_display()
         
         # Speech setup
         self.setup_speech()
@@ -148,23 +300,125 @@ class VoiceLCDv2:
             "advanced": {"enable_logging": False}
         }
     
+    def setup_display(self):
+        """Initialize display - LCD with OLED fallback"""
+        self.display_mode = None
+        self.lcd = None
+        self.oled_display = None
+        self.oled_service_stopped = False
+        
+        # Try LCD first
+        if self.setup_lcd():
+            self.display_mode = "LCD"
+            self.has_display = True
+            self.log_hardware("Using LCD display mode")
+        # Fallback to OLED
+        elif self.setup_oled_fallback():
+            self.display_mode = "OLED"
+            self.has_display = True
+            self.log_hardware("Using OLED fallback mode")
+        else:
+            self.display_mode = "NONE"
+            self.has_display = False
+            self.log_hardware("No display available - console only")
+    
     def setup_lcd(self):
-        """Initialize LCD display"""
+        """Try to initialize LCD display"""
+        if not HAS_LCD:
+            self.log_hardware("LCD libraries not available")
+            return False
+            
         hw = self.config["hardware"]
-        if HAS_LCD:
+        max_retries = 3
+        
+        for attempt in range(max_retries):
             try:
                 addr = int(hw["lcd_i2c_address"], 16)
                 self.lcd = CharLCD('PCF8574', addr, 
                                  cols=hw["lcd_cols"], rows=hw["lcd_rows"])
                 self.lcd.clear()
-                self.has_display = True
-                self.log_hardware(f"LCD connected at {hw['lcd_i2c_address']}")
+                self.log_hardware(f"LCD connected at {hw['lcd_i2c_address']} (attempt {attempt + 1})")
+                return True
             except Exception as e:
-                self.log_hardware(f"LCD setup failed: {e}")
-                self.has_display = False
-        else:
-            self.has_display = False
-            self.log_hardware("LCD libraries not available")
+                self.log_hardware(f"LCD setup attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(0.5)
+        
+        self.log_hardware("LCD hardware not detected after all attempts")
+        return False
+    
+    def setup_oled_fallback(self):
+        """Initialize OLED fallback display"""
+        if not HAS_OLED:
+            self.log_hardware("OLED libraries not available")
+            return False
+        
+        try:
+            # Stop oled.service if running
+            if self.stop_oled_service():
+                self.oled_service_stopped = True
+                time.sleep(2)  # Give service time to stop
+            
+            # Initialize OLED voice display
+            self.oled_display = OLEDVoiceDisplay()
+            if self.oled_display.initialize():
+                self.log_hardware("OLED voice display initialized")
+                return True
+            else:
+                self.log_hardware("OLED voice display initialization failed")
+                # Restart oled.service if we stopped it
+                if self.oled_service_stopped:
+                    self.start_oled_service()
+                    self.oled_service_stopped = False
+                return False
+                
+        except Exception as e:
+            self.log_hardware(f"OLED fallback setup failed: {e}")
+            # Restart oled.service if we stopped it
+            if self.oled_service_stopped:
+                self.start_oled_service()
+                self.oled_service_stopped = False
+            return False
+    
+    def stop_oled_service(self):
+        """Stop oled.service to free up OLED for voice display"""
+        try:
+            result = subprocess.run(['sudo', 'systemctl', 'stop', 'oled.service'], 
+                                   capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                self.log_hardware("oled.service stopped successfully")
+                return True
+            else:
+                self.log_hardware(f"Failed to stop oled.service: {result.stderr}")
+                return False
+        except Exception as e:
+            self.log_hardware(f"Error stopping oled.service: {e}")
+            return False
+    
+    def start_oled_service(self):
+        """Restart oled.service"""
+        try:
+            result = subprocess.run(['sudo', 'systemctl', 'start', 'oled.service'], 
+                                   capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                self.log_hardware("oled.service restarted successfully")
+                return True
+            else:
+                self.log_hardware(f"Failed to restart oled.service: {result.stderr}")
+                return False
+        except Exception as e:
+            self.log_hardware(f"Error restarting oled.service: {e}")
+            return False
+    
+    def cleanup_display(self):
+        """Cleanup display resources and restore services"""
+        if self.oled_display:
+            self.oled_display.cleanup()
+        
+        if self.oled_service_stopped:
+            self.log_hardware("Restoring oled.service...")
+            self.start_oled_service()
+            self.oled_service_stopped = False
     
     def setup_speech(self):
         """Initialize speech recognition"""
@@ -293,22 +547,45 @@ class VoiceLCDv2:
         return stats
     
     def display_text(self, line1="", line2=""):
-        """Display text on LCD"""
-        cols = self.config["hardware"]["lcd_cols"]
-        
-        if self.has_display:
+        """Display text on LCD or OLED"""
+        if not self.has_display:
+            print(f"Display: '{line1}' | '{line2}'")
+            return
+            
+        if self.display_mode == "LCD":
+            cols = self.config["hardware"]["lcd_cols"]
             self.lcd.cursor_pos = (0, 0)
             self.lcd.write_string(line1[:cols].ljust(cols))
             self.lcd.cursor_pos = (1, 0)
             self.lcd.write_string(line2[:cols].ljust(cols))
-        else:
-            print(f"LCD: '{line1}' | '{line2}'")
+        elif self.display_mode == "OLED":
+            # Format for OLED display
+            combined_text = f"{line1} {line2}".strip()
+            if combined_text:
+                self.oled_display.show_command_result(combined_text)
+            else:
+                self.oled_display.show_status("Voice: Ready")
     
     def scroll_text(self, text, line=2, duration=None, cycles=None):
         """Scroll text on specified line"""
         if not text:
             return
             
+        if self.display_mode == "OLED":
+            # OLED uses built-in smart scrolling
+            if line == 1:
+                self.oled_display.show_command_result(text)
+            else:
+                self.oled_display.show_transcription(text)
+            
+            # Hold display for duration
+            if duration:
+                time.sleep(duration)
+            else:
+                time.sleep(self.config["display"].get("heard_text_cycles", 2) * 2)
+            return
+        
+        # LCD scrolling behavior
         cols = self.config["hardware"]["lcd_cols"]
         speed = self.config["display"]["scroll_speed"]
         cycles = cycles or self.config["display"].get("heard_text_cycles", 2)
@@ -565,6 +842,10 @@ class VoiceLCDv2:
         text = text.strip()
         self.log_command(f"Processing: '{text}'")
         
+        # Show processing status for OLED
+        if self.display_mode == "OLED":
+            self.oled_display.show_status("Voice: Processing")
+        
         # Add to history
         if self.config["advanced"].get("enable_command_history", False):
             self.command_history.append((datetime.now(), text))
@@ -577,6 +858,9 @@ class VoiceLCDv2:
         
         if command_config:
             self.log_command(f"Executing command: {command_name}")
+            if self.display_mode == "OLED":
+                self.oled_display.show_status(f"Voice: {command_name}")
+                time.sleep(0.5)
             action = command_config["action"]
             self.execute_action(action, command_config, text)
         else:
@@ -584,7 +868,15 @@ class VoiceLCDv2:
             error_msgs = self.config["messages"].get("error_responses", 
                                                    ["Command not recognized"])
             error_msg = random.choice(error_msgs)
+            if self.display_mode == "OLED":
+                self.oled_display.show_status("Voice: Unknown")
+                time.sleep(0.5)
             self.scroll_text(error_msg, line=1, duration=3)
+        
+        # Return to ready state for OLED
+        if self.display_mode == "OLED":
+            time.sleep(0.5)
+            self.oled_display.show_status("Voice: Ready")
     
     def listen(self):
         """Main listening loop"""
@@ -594,6 +886,12 @@ class VoiceLCDv2:
         
         # Display startup message
         startup = self.config["display"]["startup_message"]
+        if self.display_mode == "OLED":
+            # Special OLED startup
+            self.oled_display.show_status("Voice: Starting")
+            time.sleep(1)
+            self.oled_display.show_status(f"Mode: OLED ({self.oled_display.width}x{self.oled_display.height})")
+            time.sleep(1)
         self.display_text(startup[0], startup[1])
         
         # Audio setup
@@ -639,14 +937,22 @@ class VoiceLCDv2:
                         
                         if show_all:
                             # Show what was heard
-                            cols = self.config["hardware"]["lcd_cols"]
-                            if len(text) <= cols:
-                                self.display_text("Heard:", text)
+                            if self.display_mode == "OLED":
+                                # OLED shows transcription with status
+                                self.oled_display.show_status("Voice: Heard")
+                                time.sleep(0.2)
+                                self.oled_display.show_transcription(text)
                                 time.sleep(self.config["display"]["short_text_display_time"])
                             else:
-                                self.display_text("Heard:", "")
-                                time.sleep(0.5)
-                                self.scroll_text(text, line=2)
+                                # LCD behavior
+                                cols = self.config["hardware"]["lcd_cols"]
+                                if len(text) <= cols:
+                                    self.display_text("Heard:", text)
+                                    time.sleep(self.config["display"]["short_text_display_time"])
+                                else:
+                                    self.display_text("Heard:", "")
+                                    time.sleep(0.5)
+                                    self.scroll_text(text, line=2)
                         
                         # Check for wake words
                         text_lower = text.lower()
@@ -666,7 +972,12 @@ class VoiceLCDv2:
             stream.close() 
             audio.terminate()
             if self.has_display:
-                self.lcd.clear()
+                if self.display_mode == "LCD":
+                    self.lcd.clear()
+                elif self.display_mode == "OLED":
+                    self.oled_display.show_status("Voice: Shutdown")
+                    time.sleep(1)
+            self.cleanup_display()
             self.log("Shutdown complete")
 
 def main():
