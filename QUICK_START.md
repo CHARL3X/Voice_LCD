@@ -321,10 +321,45 @@ cp examples/simple_config.json voice_config.json
 
 ---
 
+## 🎨 Govee Light Control (Bonus Feature!)
+
+Voice control your Govee smart lights directly! Already configured and ready to use.
+
+### Quick Test
+
+```bash
+# Test the control script
+cd examples/custom_scripts
+./govee_control.sh on
+./govee_control.sh color red
+./govee_control.sh off
+```
+
+### Voice Commands
+
+Say these commands (after "Pi"):
+
+- **"light on"** / **"light off"** - Power control
+- **"bright"** / **"dim"** - Brightness
+- **"red light"** / **"blue light"** - Colors
+- **"warm light"** / **"cool light"** - Temperature
+
+### Full Documentation
+
+See **`GOVEE_INTEGRATION.md`** for:
+- Complete command list
+- How it works
+- Troubleshooting
+- Adding more colors
+- Advanced usage
+
+---
+
 ## Need Help?
 
 - Check `CLAUDE.md` for full project documentation
 - See `OLED_FALLBACK_README.md` for OLED-specific info
+- See `GOVEE_INTEGRATION.md` for Govee light control
 - Review `voice_config.json` comments for all options
 - Read `examples/script_commands_template.json` for advanced scripting
 

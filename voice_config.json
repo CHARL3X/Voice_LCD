@@ -179,6 +179,94 @@
       "aliases": ["network status", "connection"],
       "command": "iwgetid -r 2>/dev/null || echo 'Not connected'",
       "display_format": ["WiFi:", "{output}"]
+    },
+
+    "light on": {
+      "action": "run_command",
+      "aliases": ["govee on", "lights on", "turn on light", "govee turn on", "turn on the light"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh on",
+      "display_format": ["Govee Light", "ON"],
+      "timeout": 10
+    },
+
+    "light off": {
+      "action": "run_command",
+      "aliases": ["govee off", "lights off", "turn off light", "govee turn off", "turn off the light"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh off",
+      "display_format": ["Govee Light", "OFF"],
+      "timeout": 10
+    },
+
+    "bright": {
+      "action": "run_command",
+      "aliases": ["full brightness", "maximum brightness", "brighten", "max brightness"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh brightness 100",
+      "display_format": ["Brightness", "100%"],
+      "timeout": 10
+    },
+
+    "dim": {
+      "action": "run_command",
+      "aliases": ["low brightness", "dim light", "darker", "minimum"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh brightness 20",
+      "display_format": ["Brightness", "20%"],
+      "timeout": 10
+    },
+
+    "medium brightness": {
+      "action": "run_command",
+      "aliases": ["medium", "half brightness", "fifty percent"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh brightness 50",
+      "display_format": ["Brightness", "50%"],
+      "timeout": 10
+    },
+
+    "red light": {
+      "action": "run_command",
+      "aliases": ["make it red", "color red", "turn red"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color red",
+      "display_format": ["Govee Color", "Red"],
+      "timeout": 10
+    },
+
+    "blue light": {
+      "action": "run_command",
+      "aliases": ["make it blue", "color blue", "turn blue"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color blue",
+      "display_format": ["Govee Color", "Blue"],
+      "timeout": 10
+    },
+
+    "green light": {
+      "action": "run_command",
+      "aliases": ["make it green", "color green", "turn green"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color green",
+      "display_format": ["Govee Color", "Green"],
+      "timeout": 10
+    },
+
+    "white light": {
+      "action": "run_command",
+      "aliases": ["make it white", "color white", "turn white"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color white",
+      "display_format": ["Govee Color", "White"],
+      "timeout": 10
+    },
+
+    "warm light": {
+      "action": "run_command",
+      "aliases": ["warm white", "cozy light", "make it warm"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh warm",
+      "display_format": ["Govee", "Warm White"],
+      "timeout": 10
+    },
+
+    "cool light": {
+      "action": "run_command",
+      "aliases": ["cool white", "daylight", "make it cool"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh cool",
+      "display_format": ["Govee", "Cool White"],
+      "timeout": 10
     }
   },
   
