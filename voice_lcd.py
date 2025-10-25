@@ -18,8 +18,6 @@ import struct
 import array
 from datetime import datetime
 
-sys.path.insert(0, '/home/morph/Desktop/LCD/venv/lib/python3.11/site-packages')
-
 try:
     import vosk
     import pyaudio

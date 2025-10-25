@@ -22,7 +22,7 @@
   
   "voice": {
     "wake_words": ["pi", "pie", "pied", "computer"],
-    "model_path": "/home/morph/Desktop/LCD/models/vosk-model-small-en-us-0.15",
+    "model_path": "/home/morph/Desktop/Voice_LCD/models/vosk-model-small-en-us-0.15",
     "show_all_transcriptions": true,
     "command_timeout": 8.0,
     "confidence_threshold": 0.3,
@@ -213,7 +213,7 @@
     "_comment": "Enhanced logging with rotation and component separation",
     "enabled": false,
     "main_log": {
-      "file": "/home/morph/Desktop/LCD/voice_lcd.log",
+      "file": "/home/morph/Desktop/Voice_LCD/voice_lcd.log",
       "level": "INFO",
       "max_file_size_mb": 10,
       "backup_count": 5,
@@ -262,7 +262,7 @@
     "_legacy_logging": {
       "_comment": "Legacy settings - use 'logging' section above instead",
       "enable_logging": true,
-      "log_file": "/home/morph/Desktop/LCD/voice_lcd.log"
+      "log_file": "/home/morph/Desktop/Voice_LCD/voice_lcd.log"
     }
   }
 }
