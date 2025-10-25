@@ -36,14 +36,22 @@ try:
     from luma.core.interface.serial import i2c
     from luma.core.render import canvas
     from luma.oled.device import ssd1306
+    from PIL import Image, ImageDraw, ImageFont
     import smbus2
     HAS_OLED = True
 except ImportError:
     HAS_OLED = False
 
+try:
+    from oled_animations import (LoadingAnimation, AudioVisualizer,
+                                  TransitionEffect, TechDrawing, ease_in_out_sine)
+    HAS_ANIMATIONS = True
+except ImportError:
+    HAS_ANIMATIONS = False
+
 class OLEDVoiceDisplay:
     """OLED display optimized for voice transcription on tiny 128x32 screen"""
-    
+
     def __init__(self):
         self.device = None
         self.width = 128
@@ -52,6 +60,18 @@ class OLEDVoiceDisplay:
         self.scroll_position = 0
         self.scroll_timer = 0
         self.status_message = "Voice: Ready"
+
+        # Animation system
+        self.has_animations = HAS_ANIMATIONS
+        self.loading_anim = None
+        self.audio_viz = None
+        self.transition = None
+        self.last_audio_level = 0.0
+
+        if self.has_animations:
+            self.loading_anim = LoadingAnimation(self.width, self.height)
+            self.audio_viz = AudioVisualizer(self.width, self.height, bar_count=10)
+            self.transition = TransitionEffect(duration=0.3)
         
     def initialize(self, i2c_port=1, oled_addresses=None):
         """Initialize OLED device for voice display"""
@@ -181,6 +201,161 @@ class OLEDVoiceDisplay:
         
         return lines
     
+    def show_loading(self, progress, stage=None):
+        """Show animated loading screen
+
+        Args:
+            progress: 0.0 to 1.0
+            stage: Optional stage text (e.g., "LOADING MODEL")
+        """
+        if not self.device:
+            return
+
+        if not self.has_animations:
+            # Fallback to simple text
+            pct = int(progress * 100)
+            stage_text = stage or "Loading"
+            self.show_status(f"{stage_text}: {pct}%")
+            return
+
+        # Create image for drawing
+        image = Image.new('1', (self.width, self.height), 0)
+        draw = ImageDraw.Draw(image)
+
+        # Update and draw loading animation
+        self.loading_anim.update(progress, stage)
+        self.loading_anim.draw(draw, progress)
+
+        # Display frame
+        self.device.display(image)
+
+    def show_audio_visualization(self, audio_level, status="LISTENING"):
+        """Show audio level visualization with status
+
+        Args:
+            audio_level: Float 0.0-1.0 representing audio RMS
+            status: Status text to display
+        """
+        if not self.device:
+            return
+
+        if not self.has_animations:
+            # Fallback to status only
+            self.show_status(f"Voice: {status}")
+            return
+
+        # Update audio visualizer
+        self.audio_viz.update(audio_level)
+
+        # Create image for drawing
+        image = Image.new('1', (self.width, self.height), 0)
+        draw = ImageDraw.Draw(image)
+
+        # Tech aesthetic background
+        TechDrawing.draw_corner_brackets(draw, self.width, self.height, size=4)
+
+        # Status text at top
+        status_text = f">> {status}"
+        draw.text((8, 2), status_text, fill="white")
+
+        # Angular divider
+        TechDrawing.draw_angular_divider(draw, 4, 12, self.width - 8)
+
+        # Audio bars at bottom (12px height)
+        bar_y = self.height - 14
+        bar_height = 12
+        self.audio_viz.draw(draw, 4, bar_y, self.width - 8, bar_height)
+
+        # Display frame
+        self.device.display(image)
+
+    def show_status_enhanced(self, status, show_audio=False, audio_level=0.0):
+        """Show status with enhanced tech aesthetic
+
+        Args:
+            status: Status text
+            show_audio: Whether to show audio visualization
+            audio_level: Current audio level if show_audio is True
+        """
+        if not self.device:
+            return
+
+        self.status_message = status
+
+        if not self.has_animations:
+            # Fallback to simple status
+            self.show_status(status)
+            return
+
+        # Create image for drawing
+        image = Image.new('1', (self.width, self.height), 0)
+        draw = ImageDraw.Draw(image)
+
+        # Tech aesthetic background
+        TechDrawing.draw_corner_brackets(draw, self.width, self.height, size=4)
+
+        # Status with larger font
+        status_text = f">> {status}"
+        draw.text((8, 4), status_text, fill="white")
+
+        # Angular divider
+        TechDrawing.draw_angular_divider(draw, 4, 16, self.width - 8)
+
+        # Audio visualization if enabled
+        if show_audio:
+            self.audio_viz.update(audio_level)
+            bar_y = 20
+            bar_height = 10
+            self.audio_viz.draw(draw, 8, bar_y, self.width - 16, bar_height)
+        else:
+            # Status dots animation
+            dot_cycle = int(time.time() * 2) % 3  # Cycle through 3 dots
+            TechDrawing.draw_status_dots(draw, self.width // 2 - 6, 24, count=3, active=dot_cycle, spacing=6)
+
+        # Display frame
+        self.device.display(image)
+
+    def show_command_result_enhanced(self, result_text):
+        """Show command result with enhanced visual"""
+        if not self.device:
+            return
+
+        if not self.has_animations:
+            # Fallback to simple display
+            self.show_command_result(result_text)
+            return
+
+        # Create image for drawing
+        image = Image.new('1', (self.width, self.height), 0)
+        draw = ImageDraw.Draw(image)
+
+        # Tech aesthetic background
+        TechDrawing.draw_corner_brackets(draw, self.width, self.height, size=4)
+
+        # Header
+        draw.text((8, 2), "RESULT", fill="white")
+
+        # Divider
+        TechDrawing.draw_angular_divider(draw, 4, 12, self.width - 8)
+
+        # Result text (wrapped)
+        wrapped_lines = self.wrap_text(result_text, 19)
+        y = 16
+        for line in wrapped_lines[:2]:  # Show first 2 lines
+            draw.text((6, y), line, fill="white")
+            y += 8
+
+        # Display frame
+        self.device.display(image)
+
+    def update_audio_level(self, audio_level):
+        """Update stored audio level for visualization
+
+        Args:
+            audio_level: Float 0.0-1.0
+        """
+        self.last_audio_level = audio_level
+
     def cleanup(self):
         """Cleanup OLED resources"""
         if self.device:
@@ -522,11 +697,56 @@ class VoiceLCDv2:
             self.has_speech = False
             self.log_hardware(f"Speech model not found at {model_path}")
             return
-        
+
         try:
             self.log_hardware("Loading speech model... (30+ seconds)")
-            self.model = vosk.Model(model_path)
-            
+
+            # Show loading animation if OLED is available
+            if self.display_mode == "OLED" and self.oled_display.has_animations:
+                import threading
+
+                # Loading progress tracking
+                loading_done = threading.Event()
+                loading_progress = [0.0]  # Mutable container for progress
+
+                def animate_loading():
+                    """Animate loading while model loads"""
+                    start_time = time.time()
+                    while not loading_done.is_set():
+                        # Estimate progress based on time (30 seconds typical)
+                        elapsed = time.time() - start_time
+                        progress = min(elapsed / 30.0, 0.95)  # Cap at 95% until done
+                        loading_progress[0] = progress
+
+                        # Show loading frame
+                        if progress < 0.3:
+                            stage = "INIT"
+                        elif progress < 0.7:
+                            stage = "LOADING MODEL"
+                        else:
+                            stage = "FINALIZING"
+
+                        self.oled_display.show_loading(progress, stage)
+                        time.sleep(0.05)  # 20 FPS
+
+                    # Show 100% complete
+                    self.oled_display.show_loading(1.0, "READY")
+                    time.sleep(0.5)
+
+                # Start animation thread
+                anim_thread = threading.Thread(target=animate_loading, daemon=True)
+                anim_thread.start()
+
+                # Load model (blocking)
+                self.model = vosk.Model(model_path)
+
+                # Signal animation complete
+                loading_done.set()
+                anim_thread.join(timeout=1.0)
+            else:
+                # No animation - direct load
+                self.model = vosk.Model(model_path)
+
             hw = self.config["hardware"]
             self.rec = vosk.KaldiRecognizer(self.model, hw["audio_sample_rate"])
             self.has_speech = True
@@ -974,7 +1194,10 @@ class VoiceLCDv2:
         
         # Show processing status for OLED
         if self.display_mode == "OLED":
-            self.oled_display.show_status("Voice: Processing")
+            if self.oled_display.has_animations:
+                self.oled_display.show_status_enhanced("PROCESSING")
+            else:
+                self.oled_display.show_status("Voice: Processing")
         
         # Add to history
         if self.config["advanced"].get("enable_command_history", False):
@@ -989,8 +1212,12 @@ class VoiceLCDv2:
         if command_config:
             self.log_command(f"Executing command: {command_name}")
             if self.display_mode == "OLED":
-                self.oled_display.show_status(f"Voice: {command_name}")
-                time.sleep(0.5)
+                status_text = command_name.replace("_", " ").upper()[:12]
+                if self.oled_display.has_animations:
+                    self.oled_display.show_status_enhanced(f"CMD: {status_text}")
+                else:
+                    self.oled_display.show_status(f"Voice: {command_name}")
+                time.sleep(0.3)
             action = command_config["action"]
             self.execute_action(action, command_config, text)
         else:
@@ -1005,8 +1232,11 @@ class VoiceLCDv2:
         
         # Return to ready state for OLED
         if self.display_mode == "OLED":
-            time.sleep(0.5)
-            self.oled_display.show_status("Voice: Ready")
+            time.sleep(0.3)
+            if self.oled_display.has_animations:
+                self.oled_display.show_status_enhanced("READY")
+            else:
+                self.oled_display.show_status("Voice: Ready")
     
     def listen(self):
         """Main listening loop"""
@@ -1017,11 +1247,17 @@ class VoiceLCDv2:
         # Display startup message
         startup = self.config["display"]["startup_message"]
         if self.display_mode == "OLED":
-            # Special OLED startup
-            self.oled_display.show_status("Voice: Starting")
-            time.sleep(1)
-            self.oled_display.show_status(f"Mode: OLED ({self.oled_display.width}x{self.oled_display.height})")
-            time.sleep(1)
+            # Special OLED startup with enhanced visuals
+            if self.oled_display.has_animations:
+                self.oled_display.show_status_enhanced("INITIALIZED")
+                time.sleep(1)
+                self.oled_display.show_status_enhanced("READY")
+                time.sleep(0.5)
+            else:
+                self.oled_display.show_status("Voice: Starting")
+                time.sleep(1)
+                self.oled_display.show_status(f"Mode: OLED ({self.oled_display.width}x{self.oled_display.height})")
+                time.sleep(1)
         self.display_text(startup[0], startup[1])
         
         # Audio setup
@@ -1035,16 +1271,28 @@ class VoiceLCDv2:
         show_all = self.config["voice"]["show_all_transcriptions"]
         
         self.log(f"Listening for wake words: {', '.join(wake_words)}")
-        
+
+        # Initialize frame counter for audio viz updates
+        frame_count = 0
+        audio_update_interval = 2  # Update audio viz every N frames (reduce CPU)
+
         try:
             while True:
                 data = stream.read(hw["audio_chunk_size"], exception_on_overflow=False)
-                
-                # Ring buffer: Calculate audio level and check for reset
+
+                # Calculate audio level for visualization
+                audio_rms = self.calculate_audio_rms(data)
+
+                # Ring buffer: Check for reset
                 if self.ring_buffer_enabled:
-                    audio_rms = self.calculate_audio_rms(data)
                     if self.should_reset_recognizer(audio_rms):
                         self.reset_speech_recognizer()
+
+                # Update audio visualization periodically (OLED only)
+                if self.display_mode == "OLED" and self.oled_display.has_animations:
+                    frame_count += 1
+                    if frame_count % audio_update_interval == 0:
+                        self.oled_display.show_audio_visualization(audio_rms, status="READY")
                 
                 if self.rec.AcceptWaveform(data):
                     result = json.loads(self.rec.Result())
@@ -1068,10 +1316,15 @@ class VoiceLCDv2:
                         if show_all:
                             # Show what was heard
                             if self.display_mode == "OLED":
-                                # OLED shows transcription with status
-                                self.oled_display.show_status("Voice: Heard")
-                                time.sleep(0.2)
-                                self.oled_display.show_transcription(text)
+                                # OLED shows transcription with enhanced status
+                                if self.oled_display.has_animations:
+                                    self.oled_display.show_status_enhanced("HEARD")
+                                    time.sleep(0.2)
+                                    self.oled_display.show_command_result_enhanced(text)
+                                else:
+                                    self.oled_display.show_status("Voice: Heard")
+                                    time.sleep(0.2)
+                                    self.oled_display.show_transcription(text)
                                 time.sleep(self.config["display"]["short_text_display_time"])
                             else:
                                 # LCD behavior
