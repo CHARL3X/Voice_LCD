@@ -32,11 +32,17 @@
     "confidence_threshold": 0.3,
     "ring_buffer": {
       "_comment": "Ring buffer prevents audio processing delays after conversations",
-      "enabled": false,
+      "enabled": true,
       "silence_threshold": 0.01,
-      "silence_duration": 3.0,
-      "max_reset_interval": 30.0,
+      "silence_duration": 3.5,
+      "max_reset_interval": 20.0,
       "text_buffer_size": 50
+    },
+    "smart_wake_detection": {
+      "_comment": "Only process full audio after detecting wake word in partial results",
+      "enabled": true,
+      "command_timeout": 8.0,
+      "partial_check_interval": 5
     }
   },
   

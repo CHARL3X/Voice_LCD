@@ -234,7 +234,7 @@ class OLEDVoiceDisplay:
 
         Args:
             audio_level: Float 0.0-1.0 representing audio RMS
-            status: Status text to display
+            status: Status text to display (MONITORING or LISTENING)
         """
         if not self.device:
             return
@@ -251,8 +251,16 @@ class OLEDVoiceDisplay:
         image = Image.new('1', (self.width, self.height), 0)
         draw = ImageDraw.Draw(image)
 
+        # Visual distinction: Monitoring vs Listening
+        is_monitoring = status == "MONITORING"
+
         # Tech aesthetic background
-        TechDrawing.draw_corner_brackets(draw, self.width, self.height, size=4)
+        if is_monitoring:
+            # Minimal corners for monitoring mode
+            TechDrawing.draw_corner_brackets(draw, self.width, self.height, size=3)
+        else:
+            # Full corners for active listening
+            TechDrawing.draw_corner_brackets(draw, self.width, self.height, size=4)
 
         # Status text at top
         status_text = f">> {status}"
@@ -264,7 +272,23 @@ class OLEDVoiceDisplay:
         # Audio bars at bottom (12px height)
         bar_y = self.height - 14
         bar_height = 12
-        self.audio_viz.draw(draw, 4, bar_y, self.width - 8, bar_height)
+
+        if is_monitoring:
+            # Monitoring mode: Show dimmed bars (every other bar)
+            # Draw subset of bars to indicate passive listening
+            sparse_levels = [self.audio_viz.levels[i] if i % 2 == 0 else 0.0
+                            for i in range(len(self.audio_viz.levels))]
+            TechDrawing.draw_audio_bars(draw, 4, bar_y, self.width - 8, bar_height,
+                                       sparse_levels, self.audio_viz.bar_count)
+
+            # Add subtle "standby" indicator
+            draw.text((self.width - 12, bar_y - 2), "..", fill="white")
+        else:
+            # Active listening: Full bars
+            self.audio_viz.draw(draw, 4, bar_y, self.width - 8, bar_height)
+
+            # Add active indicator
+            draw.rectangle([(self.width - 6, bar_y), (self.width - 2, bar_y + 3)], fill="white")
 
         # Display frame
         self.device.display(image)
@@ -1170,21 +1194,38 @@ class VoiceLCDv2:
                 self.lcd.clear()
             time.sleep(1)
     
+    def contains_wake_word(self, text):
+        """Check if text contains any wake word
+
+        Args:
+            text: Text to check (case insensitive)
+
+        Returns:
+            bool: True if wake word detected
+        """
+        if not text:
+            return False
+
+        text_lower = text.lower()
+        wake_words = self.config["voice"]["wake_words"]
+
+        return any(wake_word in text_lower for wake_word in wake_words)
+
     def find_matching_command(self, text):
         """Find command that matches the spoken text"""
         text_lower = text.lower()
-        
+
         for command_name, command_config in self.config["commands"].items():
             # Check main command name
             if command_name in text_lower:
                 return command_name, command_config
-            
+
             # Check aliases
             aliases = command_config.get("aliases", [])
             for alias in aliases:
                 if alias.lower() in text_lower:
                     return command_name, command_config
-        
+
         return None, None
     
     def handle_command(self, text):
@@ -1237,6 +1278,11 @@ class VoiceLCDv2:
                 self.oled_display.show_status_enhanced("READY")
             else:
                 self.oled_display.show_status("Voice: Ready")
+
+        # Immediately reset recognizer to prevent backlog
+        if self.has_speech:
+            self.rec.Reset()
+            self.log_transcription("Recognizer reset after command execution")
     
     def listen(self):
         """Main listening loop"""
@@ -1272,9 +1318,22 @@ class VoiceLCDv2:
         
         self.log(f"Listening for wake words: {', '.join(wake_words)}")
 
+        # Smart wake detection configuration
+        smart_wake_config = self.config.get("voice", {}).get("smart_wake_detection", {})
+        smart_wake_enabled = smart_wake_config.get("enabled", True)
+        command_timeout = smart_wake_config.get("command_timeout", 8.0)
+        partial_check_interval = smart_wake_config.get("partial_check_interval", 5)
+
         # Initialize frame counter for audio viz updates
         frame_count = 0
+        partial_frame_count = 0
         audio_update_interval = 2  # Update audio viz every N frames (reduce CPU)
+
+        # Listening mode: "monitoring" or "active"
+        listening_mode = "monitoring"
+        wake_detected_time = None
+
+        self.log(f"Smart wake detection: {'enabled' if smart_wake_enabled else 'disabled'}")
 
         try:
             while True:
@@ -1287,66 +1346,118 @@ class VoiceLCDv2:
                 if self.ring_buffer_enabled:
                     if self.should_reset_recognizer(audio_rms):
                         self.reset_speech_recognizer()
+                        listening_mode = "monitoring"  # Reset to monitoring mode
 
                 # Update audio visualization periodically (OLED only)
                 if self.display_mode == "OLED" and self.oled_display.has_animations:
                     frame_count += 1
                     if frame_count % audio_update_interval == 0:
-                        self.oled_display.show_audio_visualization(audio_rms, status="READY")
-                
-                if self.rec.AcceptWaveform(data):
-                    result = json.loads(self.rec.Result())
-                    text = result.get('text', '').strip()
-                    
-                    if text:
-                        # Ring buffer: Add to recent transcriptions buffer
-                        if self.ring_buffer_enabled:
-                            self.recent_transcriptions.append({
-                                'text': text,
-                                'timestamp': time.time()
-                            })
-                            # Trim buffer to max size
-                            if len(self.recent_transcriptions) > self.text_buffer_size:
-                                self.recent_transcriptions.pop(0)
-                        
-                        # Log transcription if enabled
-                        if self.config.get("logging", {}).get("component_logs", {}).get("transcription", {}).get("enabled", True):
-                            self.log_transcription(f"Transcribed: '{text}'")
-                        
-                        if show_all:
-                            # Show what was heard
-                            if self.display_mode == "OLED":
-                                # OLED shows transcription with enhanced status
-                                if self.oled_display.has_animations:
-                                    self.oled_display.show_status_enhanced("HEARD")
-                                    time.sleep(0.2)
-                                    self.oled_display.show_command_result_enhanced(text)
+                        # Show different status based on mode
+                        if listening_mode == "monitoring":
+                            self.oled_display.show_audio_visualization(audio_rms, status="MONITORING")
+                        else:
+                            self.oled_display.show_audio_visualization(audio_rms, status="LISTENING")
+
+                # SMART WAKE DETECTION MODE
+                if smart_wake_enabled:
+                    if listening_mode == "monitoring":
+                        # Check partial results for wake word (lightweight)
+                        partial_frame_count += 1
+                        if partial_frame_count >= partial_check_interval:
+                            partial_frame_count = 0
+                            partial_result = self.rec.PartialResult()
+                            if partial_result:
+                                partial_data = json.loads(partial_result)
+                                partial_text = partial_data.get('partial', '').strip()
+
+                                if partial_text and self.contains_wake_word(partial_text):
+                                    # Wake word detected! Switch to active mode
+                                    listening_mode = "active"
+                                    wake_detected_time = time.time()
+                                    self.log_transcription(f"Wake word detected in partial: '{partial_text}'")
+
+                                    # Show active listening on OLED
+                                    if self.display_mode == "OLED" and self.oled_display.has_animations:
+                                        self.oled_display.show_status_enhanced("LISTENING")
+
+                    elif listening_mode == "active":
+                        # Active mode: Full processing for command
+                        if self.rec.AcceptWaveform(data):
+                            result = json.loads(self.rec.Result())
+                            text = result.get('text', '').strip()
+
+                            if text:
+                                # Log transcription
+                                self.log_transcription(f"Active transcription: '{text}'")
+
+                                # Check if still contains wake word
+                                if self.contains_wake_word(text):
+                                    # Process command
+                                    self.handle_command(text)
+                                    listening_mode = "monitoring"  # Return to monitoring
                                 else:
-                                    self.oled_display.show_status("Voice: Heard")
-                                    time.sleep(0.2)
-                                    self.oled_display.show_transcription(text)
-                                time.sleep(self.config["display"]["short_text_display_time"])
-                            else:
-                                # LCD behavior
-                                cols = self.config["hardware"]["lcd_cols"]
-                                if len(text) <= cols:
-                                    self.display_text("Heard:", text)
+                                    # False positive, return to monitoring
+                                    self.log_transcription("No wake word in full result, returning to monitoring")
+                                    self.rec.Reset()
+                                    listening_mode = "monitoring"
+
+                        # Timeout check
+                        if wake_detected_time and (time.time() - wake_detected_time > command_timeout):
+                            self.log_transcription(f"Command timeout ({command_timeout}s), returning to monitoring")
+                            self.rec.Reset()
+                            listening_mode = "monitoring"
+
+                else:
+                    # LEGACY MODE: Always process everything (old behavior)
+                    if self.rec.AcceptWaveform(data):
+                        result = json.loads(self.rec.Result())
+                        text = result.get('text', '').strip()
+
+                        if text:
+                            # Ring buffer: Add to recent transcriptions buffer
+                            if self.ring_buffer_enabled:
+                                self.recent_transcriptions.append({
+                                    'text': text,
+                                    'timestamp': time.time()
+                                })
+                                # Trim buffer to max size
+                                if len(self.recent_transcriptions) > self.text_buffer_size:
+                                    self.recent_transcriptions.pop(0)
+
+                            # Log transcription if enabled
+                            if self.config.get("logging", {}).get("component_logs", {}).get("transcription", {}).get("enabled", True):
+                                self.log_transcription(f"Transcribed: '{text}'")
+
+                            if show_all:
+                                # Show what was heard
+                                if self.display_mode == "OLED":
+                                    # OLED shows transcription with enhanced status
+                                    if self.oled_display.has_animations:
+                                        self.oled_display.show_status_enhanced("HEARD")
+                                        time.sleep(0.2)
+                                        self.oled_display.show_command_result_enhanced(text)
+                                    else:
+                                        self.oled_display.show_status("Voice: Heard")
+                                        time.sleep(0.2)
+                                        self.oled_display.show_transcription(text)
                                     time.sleep(self.config["display"]["short_text_display_time"])
                                 else:
-                                    self.display_text("Heard:", "")
-                                    time.sleep(0.5)
-                                    self.scroll_text(text, line=2)
-                        
-                        # Check for wake words
-                        text_lower = text.lower()
-                        wake_detected = any(wake_word in text_lower for wake_word in wake_words)
-                        
-                        if wake_detected:
-                            self.handle_command(text)
-                        
-                        # Return to ready state (don't overwrite transcriptions)
-                        # Only clear if no recent transcription
-                        time.sleep(0.5)
+                                    # LCD behavior
+                                    cols = self.config["hardware"]["lcd_cols"]
+                                    if len(text) <= cols:
+                                        self.display_text("Heard:", text)
+                                        time.sleep(self.config["display"]["short_text_display_time"])
+                                    else:
+                                        self.display_text("Heard:", "")
+                                        time.sleep(0.5)
+                                        self.scroll_text(text, line=2)
+
+                            # Check for wake words
+                            if self.contains_wake_word(text):
+                                self.handle_command(text)
+
+                            # Return to ready state
+                            time.sleep(0.5)
                         
         except KeyboardInterrupt:
             self.log("Stopped by user")
