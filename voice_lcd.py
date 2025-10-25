@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
+#!/home/morph/Desktop/Voice_LCD/venv/bin/python3
 """
 Voice LCD v2 - Configurable voice-activated display system
 Config: voice_config.json
+Auto-uses virtual environment (no need to activate manually)
 """
 import sys
 import os

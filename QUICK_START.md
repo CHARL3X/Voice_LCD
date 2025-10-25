@@ -19,9 +19,10 @@
 
 ```bash
 cd ~/Desktop/Voice_LCD
-source venv/bin/activate
 ./voice_lcd.py
 ```
+
+**Note:** No need to activate venv manually - the script does it automatically!
 
 ### Say Commands
 

@@ -21,12 +21,16 @@ This is a Raspberry Pi LCD display system with three main applications:
 
 ### Environment Setup
 ```bash
-# Create and activate virtual environment
+# Create virtual environment
 python3 -m venv venv
+
+# Activate venv (only needed for installing packages)
 source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Note: Running scripts doesn't require activation - they auto-use venv
 
 # Enable I2C on Raspberry Pi
 sudo raspi-config  # Interface Options > I2C > Enable
@@ -40,20 +44,20 @@ arecord -l
 
 ### Running Applications
 ```bash
-# Digital Zen Garden (ambient display)
-python3 zen_garden.py
-
-# Voice LCD with default config
-python3 voice_lcd.py
+# Voice LCD with default config (auto-uses venv)
+./voice_lcd.py
 
 # Voice LCD with custom config
-python3 voice_lcd.py examples/simple_config.json
+./voice_lcd.py examples/simple_config.json
+
+# Digital Zen Garden (ambient display)
+./zen_garden.py
 
 # IP Display utility
-python3 ip_display.py
+./ip_display.py
 
 # LCD Messenger CLI
-python3 lcd_messenger.py "Your message here"
+./lcd_messenger.py "Your message here"
 ```
 
 ## Architecture
