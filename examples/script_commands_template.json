@@ -1,0 +1,143 @@
+{
+  "_comment": "Template for Running Custom Scripts with Voice Commands",
+  "_usage": "Copy this template and modify commands to run your own scripts",
+
+  "hardware": {
+    "lcd_i2c_address": "0x3f",
+    "lcd_cols": 16,
+    "lcd_rows": 2
+  },
+
+  "display": {
+    "scroll_speed": 0.15,
+    "short_text_display_time": 3.0,
+    "startup_message": ["Script Runner", "Say 'Pi help'"],
+    "listening_message": ["Ready", ""]
+  },
+
+  "voice": {
+    "wake_words": ["pi", "pie"],
+    "model_path": "./models/vosk-model-small-en-us-0.15",
+    "show_all_transcriptions": true
+  },
+
+  "commands": {
+    "_comment_help": "Each command can trigger a script execution",
+
+    "help": {
+      "action": "custom_message",
+      "message": "Try: backup, gpio on, gpio off, check sensor, run task",
+      "scroll_duration": 6
+    },
+
+    "backup": {
+      "_comment": "Example: Run a backup script",
+      "action": "run_command",
+      "aliases": ["start backup", "backup now"],
+      "command": "/home/morph/scripts/backup.sh",
+      "display_format": ["Backup:", "{output}"],
+      "timeout": 30
+    },
+
+    "gpio on": {
+      "_comment": "Example: Turn on GPIO pin (LED, relay, etc)",
+      "action": "run_command",
+      "aliases": ["turn on", "lights on", "activate"],
+      "command": "gpio -g write 17 1",
+      "display_format": ["GPIO 17:", "ON"]
+    },
+
+    "gpio off": {
+      "_comment": "Example: Turn off GPIO pin",
+      "action": "run_command",
+      "aliases": ["turn off", "lights off", "deactivate"],
+      "command": "gpio -g write 17 0",
+      "display_format": ["GPIO 17:", "OFF"]
+    },
+
+    "check sensor": {
+      "_comment": "Example: Read from a sensor script",
+      "action": "run_command",
+      "aliases": ["sensor", "temperature", "humidity"],
+      "command": "/home/morph/scripts/read_sensor.py",
+      "display_format": ["Sensor:", "{output}"],
+      "timeout": 10
+    },
+
+    "run task": {
+      "_comment": "Example: Execute custom Python script",
+      "action": "run_command",
+      "aliases": ["do task", "execute task"],
+      "command": "python3 /home/morph/scripts/my_task.py",
+      "display_format": ["Task Result:", "{output}"],
+      "timeout": 15
+    },
+
+    "system update": {
+      "_comment": "Example: Run system update (requires sudo)",
+      "action": "run_command",
+      "aliases": ["update system"],
+      "command": "sudo apt-get update && echo 'Updated'",
+      "display_format": ["System:", "{output}"],
+      "timeout": 60
+    },
+
+    "photo": {
+      "_comment": "Example: Take photo with raspistill",
+      "action": "run_command",
+      "aliases": ["take photo", "camera", "picture"],
+      "command": "raspistill -o /tmp/photo_$(date +%s).jpg && echo 'Photo saved'",
+      "display_format": ["Camera:", "{output}"]
+    },
+
+    "restart service": {
+      "_comment": "Example: Restart a service",
+      "action": "run_command",
+      "aliases": ["restart app"],
+      "command": "sudo systemctl restart my_service && echo 'Restarted'",
+      "display_format": ["Service:", "{output}"]
+    },
+
+    "custom message": {
+      "_comment": "Example: Display custom message with variables",
+      "action": "custom_message",
+      "aliases": ["show info"],
+      "message": "Current time: {time}, IP: {ip}",
+      "scroll_duration": 5
+    }
+  },
+
+  "messages": {
+    "error_responses": [
+      "Script command not recognized",
+      "Try: Pi help for options"
+    ]
+  },
+
+  "_notes": {
+    "action_types": {
+      "run_command": "Execute shell command or script",
+      "custom_message": "Display formatted text with variables",
+      "show_ip": "Show IP address",
+      "show_time": "Show current time",
+      "tell_joke": "Display random joke",
+      "clear_display": "Clear the screen"
+    },
+    "variables": {
+      "{ip}": "Current IP address",
+      "{time}": "Current time HH:MM:SS",
+      "{date}": "Current date MM/DD/YY",
+      "{random_X_Y}": "Random number between X and Y",
+      "{output}": "Output from run_command"
+    },
+    "timeout": "Optional timeout in seconds for run_command (default: no timeout)",
+    "display_format": "Two-line format for LCD display: ['Line 1', 'Line 2 with {variables}']",
+    "aliases": "Alternative phrases that trigger the same command",
+    "script_requirements": [
+      "Scripts must be executable (chmod +x script.sh)",
+      "Scripts should output short text (will be truncated to 50 chars)",
+      "Scripts should complete quickly or use timeout parameter",
+      "Use full absolute paths to scripts for reliability"
+    ]
+  }
+}

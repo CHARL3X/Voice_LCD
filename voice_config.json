@@ -6,6 +6,10 @@
     "lcd_i2c_address": "0x3f",
     "lcd_cols": 16,
     "lcd_rows": 2,
+    "i2c_port": 1,
+    "i2c_backpack_type": "PCF8574",
+    "oled_addresses": [61, 60],
+    "oled_service_name": "oled.service",
     "audio_sample_rate": 22050,
     "audio_chunk_size": 2048
   },

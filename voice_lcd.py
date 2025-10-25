@@ -52,13 +52,16 @@ class OLEDVoiceDisplay:
         self.scroll_timer = 0
         self.status_message = "Voice: Ready"
         
-    def initialize(self):
+    def initialize(self, i2c_port=1, oled_addresses=None):
         """Initialize OLED device for voice display"""
+        if oled_addresses is None:
+            oled_addresses = [0x3D, 0x3C]  # Default addresses
+
         try:
-            # Try primary OLED addresses
-            for addr in [0x3D, 0x3C]:
+            # Try configured OLED addresses
+            for addr in oled_addresses:
                 try:
-                    serial = i2c(port=1, address=addr)
+                    serial = i2c(port=i2c_port, address=addr)
                     self.device = ssd1306(serial, width=self.width, height=self.height)
                     self.clear()
                     self.show_status("Voice: Ready")
@@ -192,7 +195,10 @@ class VoiceLCDv2:
         
         # Setup enhanced logging system
         self.setup_logging()
-        
+
+        # Validate configuration
+        self.validate_config()
+
         # Display setup (LCD with OLED fallback)
         self.setup_display()
         
@@ -204,9 +210,73 @@ class VoiceLCDv2:
         
         # Ring buffer initialization
         self.init_ring_buffer()
-        
+
         self.log("Voice LCD v2 initialized")
-    
+
+    def resolve_path(self, path):
+        """
+        Resolve path relative to config file directory.
+        Supports both relative and absolute paths.
+        """
+        if not path:
+            return path
+
+        # Already absolute path
+        if os.path.isabs(path):
+            return path
+
+        # Resolve relative to config file directory
+        config_dir = os.path.dirname(os.path.abspath(self.config_path))
+        resolved = os.path.normpath(os.path.join(config_dir, path))
+        return resolved
+
+    def validate_config(self):
+        """Validate configuration and warn about missing or invalid settings"""
+        warnings = []
+
+        # Check required sections
+        required_sections = ["hardware", "display", "voice", "commands"]
+        for section in required_sections:
+            if section not in self.config:
+                warnings.append(f"Missing required config section: '{section}'")
+
+        # Check voice config
+        if "voice" in self.config:
+            voice = self.config["voice"]
+            if "model_path" not in voice:
+                warnings.append("Missing 'voice.model_path' - speech recognition will fail")
+            elif voice["model_path"]:
+                model_path = self.resolve_path(voice["model_path"])
+                if not os.path.exists(model_path):
+                    warnings.append(f"Speech model not found: {model_path}")
+
+            if "wake_words" not in voice or not voice["wake_words"]:
+                warnings.append("No wake words configured - voice commands won't trigger")
+
+        # Check hardware config
+        if "hardware" in self.config:
+            hw = self.config["hardware"]
+            required_hw = ["lcd_i2c_address", "lcd_cols", "lcd_rows"]
+            for key in required_hw:
+                if key not in hw:
+                    warnings.append(f"Missing hardware config: '{key}'")
+
+        # Check commands
+        if "commands" in self.config:
+            if not self.config["commands"]:
+                warnings.append("No commands configured - nothing will respond to voice")
+
+        # Log warnings
+        if warnings:
+            self.log("=== Configuration Warnings ===")
+            for warning in warnings:
+                self.log(f"  ⚠ {warning}")
+            self.log("==============================")
+        else:
+            self.log("Configuration validated successfully")
+
+        return len(warnings) == 0
+
     def setup_logging(self):
         """Setup enhanced logging system with rotation"""
         # Check for new logging config, fall back to legacy
@@ -215,7 +285,7 @@ class VoiceLCDv2:
             # Legacy logging support
             legacy = self.config.get("advanced", {})
             if legacy.get("enable_logging", False):
-                log_file = legacy.get("log_file", "voice_lcd.log")
+                log_file = self.resolve_path(legacy.get("log_file", "voice_lcd.log"))
                 logging.basicConfig(filename=log_file, level=logging.INFO,
                                   format='%(asctime)s - %(levelname)s - %(message)s')
                 self.logger = logging.getLogger(__name__)
@@ -226,7 +296,7 @@ class VoiceLCDv2:
         
         # Setup main rotating logger
         main_config = logging_config["main_log"]
-        log_file = main_config["file"]
+        log_file = self.resolve_path(main_config["file"])
         max_bytes = main_config.get("max_file_size_mb", 10) * 1024 * 1024
         backup_count = main_config.get("backup_count", 5)
         log_format = main_config.get("format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -325,23 +395,24 @@ class VoiceLCDv2:
         if not HAS_LCD:
             self.log_hardware("LCD libraries not available")
             return False
-            
+
         hw = self.config["hardware"]
         max_retries = 3
-        
+        backpack_type = hw.get("i2c_backpack_type", "PCF8574")
+
         for attempt in range(max_retries):
             try:
                 addr = int(hw["lcd_i2c_address"], 16)
-                self.lcd = CharLCD('PCF8574', addr, 
+                self.lcd = CharLCD(backpack_type, addr,
                                  cols=hw["lcd_cols"], rows=hw["lcd_rows"])
                 self.lcd.clear()
-                self.log_hardware(f"LCD connected at {hw['lcd_i2c_address']} (attempt {attempt + 1})")
+                self.log_hardware(f"LCD connected at {hw['lcd_i2c_address']} using {backpack_type} (attempt {attempt + 1})")
                 return True
             except Exception as e:
                 self.log_hardware(f"LCD setup attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
                     time.sleep(0.5)
-        
+
         self.log_hardware("LCD hardware not detected after all attempts")
         return False
     
@@ -350,17 +421,22 @@ class VoiceLCDv2:
         if not HAS_OLED:
             self.log_hardware("OLED libraries not available")
             return False
-        
+
         try:
             # Stop oled.service if running
             if self.stop_oled_service():
                 self.oled_service_stopped = True
                 time.sleep(2)  # Give service time to stop
-            
+
+            # Get hardware config
+            hw = self.config.get("hardware", {})
+            i2c_port = hw.get("i2c_port", 1)
+            oled_addresses = hw.get("oled_addresses", [0x3D, 0x3C])
+
             # Initialize OLED voice display
             self.oled_display = OLEDVoiceDisplay()
-            if self.oled_display.initialize():
-                self.log_hardware("OLED voice display initialized")
+            if self.oled_display.initialize(i2c_port=i2c_port, oled_addresses=oled_addresses):
+                self.log_hardware(f"OLED voice display initialized on port {i2c_port}")
                 return True
             else:
                 self.log_hardware("OLED voice display initialization failed")
@@ -369,7 +445,7 @@ class VoiceLCDv2:
                     self.start_oled_service()
                     self.oled_service_stopped = False
                 return False
-                
+
         except Exception as e:
             self.log_hardware(f"OLED fallback setup failed: {e}")
             # Restart oled.service if we stopped it
@@ -381,31 +457,37 @@ class VoiceLCDv2:
     def stop_oled_service(self):
         """Stop oled.service to free up OLED for voice display"""
         try:
-            result = subprocess.run(['sudo', 'systemctl', 'stop', 'oled.service'], 
+            hw = self.config.get("hardware", {})
+            service_name = hw.get("oled_service_name", "oled.service")
+
+            result = subprocess.run(['sudo', 'systemctl', 'stop', service_name],
                                    capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
-                self.log_hardware("oled.service stopped successfully")
+                self.log_hardware(f"{service_name} stopped successfully")
                 return True
             else:
-                self.log_hardware(f"Failed to stop oled.service: {result.stderr}")
+                self.log_hardware(f"Failed to stop {service_name}: {result.stderr}")
                 return False
         except Exception as e:
-            self.log_hardware(f"Error stopping oled.service: {e}")
+            self.log_hardware(f"Error stopping OLED service: {e}")
             return False
-    
+
     def start_oled_service(self):
         """Restart oled.service"""
         try:
-            result = subprocess.run(['sudo', 'systemctl', 'start', 'oled.service'], 
+            hw = self.config.get("hardware", {})
+            service_name = hw.get("oled_service_name", "oled.service")
+
+            result = subprocess.run(['sudo', 'systemctl', 'start', service_name],
                                    capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
-                self.log_hardware("oled.service restarted successfully")
+                self.log_hardware(f"{service_name} restarted successfully")
                 return True
             else:
-                self.log_hardware(f"Failed to restart oled.service: {result.stderr}")
+                self.log_hardware(f"Failed to restart {service_name}: {result.stderr}")
                 return False
         except Exception as e:
-            self.log_hardware(f"Error restarting oled.service: {e}")
+            self.log_hardware(f"Error restarting OLED service: {e}")
             return False
     
     def cleanup_display(self):
@@ -424,10 +506,10 @@ class VoiceLCDv2:
             self.has_speech = False
             self.log_hardware("Vosk not available")
             return
-        
+
         voice_config = self.config["voice"]
-        model_path = voice_config["model_path"]
-        
+        model_path = self.resolve_path(voice_config["model_path"])
+
         if not os.path.exists(model_path):
             self.has_speech = False
             self.log_hardware(f"Speech model not found at {model_path}")
@@ -471,14 +553,15 @@ class VoiceLCDv2:
         try:
             # Convert bytes to array of 16-bit integers
             audio_array = array.array('h', audio_data)
-            
+
             # Calculate RMS
             sum_squares = sum(sample * sample for sample in audio_array)
             rms = (sum_squares / len(audio_array)) ** 0.5
-            
+
             # Normalize to 0-1 range (assuming 16-bit audio)
             return rms / 32768.0
-        except:
+        except (struct.error, ValueError, ZeroDivisionError) as e:
+            self.log_transcription(f"Warning: Audio RMS calculation failed: {e}")
             return 0.0
     
     def should_reset_recognizer(self, audio_rms):
@@ -638,11 +721,13 @@ class VoiceLCDv2:
     def get_ip(self):
         """Get Pi's IP address"""
         try:
-            result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
-            if result.returncode == 0:
+            result = subprocess.run(['hostname', '-I'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip().split()[0]
-        except:
-            pass
+        except (subprocess.TimeoutExpired, FileNotFoundError, IndexError) as e:
+            self.log_command(f"Warning: Could not get IP address: {e}")
+        except Exception as e:
+            self.log_command(f"Unexpected error getting IP: {e}")
         return "No Network"
     
     def get_log_info(self):
@@ -651,8 +736,8 @@ class VoiceLCDv2:
             log_config = self.config.get("logging", {})
             if not log_config.get("enabled", False):
                 return "Logging disabled"
-            
-            log_file = log_config.get("main_log", {}).get("file", "voice_lcd.log")
+
+            log_file = self.resolve_path(log_config.get("main_log", {}).get("file", "voice_lcd.log"))
             if os.path.exists(log_file):
                 size = os.path.getsize(log_file) / (1024 * 1024)  # MB
                 return f"Log: {size:.1f}MB"
@@ -680,7 +765,7 @@ class VoiceLCDv2:
             used_percent = (disk.used / disk.total) * 100
             free_gb = disk.free / (1024**3)
             
-            # Memory info (if available)
+            # Memory info (if available on Linux)
             try:
                 with open('/proc/meminfo', 'r') as f:
                     meminfo = f.read()
@@ -688,14 +773,15 @@ class VoiceLCDv2:
                 mem_free = int([line for line in meminfo.split('\n') if 'MemAvailable' in line][0].split()[1]) // 1024
                 mem_used = mem_total - mem_free
                 mem_percent = (mem_used / mem_total) * 100
-                
+
                 return {
                     "disk_used_percent": used_percent,
                     "disk_free_gb": free_gb,
                     "memory_used_percent": mem_percent,
                     "memory_used_mb": mem_used
                 }
-            except:
+            except (FileNotFoundError, IndexError, ValueError) as e:
+                self.log("Memory info not available (non-Linux system or permission issue)")
                 return {
                     "disk_used_percent": used_percent,
                     "disk_free_gb": free_gb
@@ -736,13 +822,39 @@ class VoiceLCDv2:
         elif action_type == "run_command":
             try:
                 cmd = command_config["command"]
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                output = result.stdout.strip()[:50]  # Limit output length
-                
+                timeout = command_config.get("timeout", None)  # Optional timeout in seconds
+                show_errors = command_config.get("show_errors", True)
+
+                self.log_command(f"Running command: {cmd[:50]}...")
+
+                # Run command with optional timeout
+                result = subprocess.run(
+                    cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout
+                )
+
+                # Check if command succeeded
+                if result.returncode == 0:
+                    output = result.stdout.strip()[:50]  # Limit output length
+                    self.log_command(f"Command succeeded: {output[:30]}")
+                else:
+                    # Command failed - show stderr if enabled
+                    if show_errors and result.stderr:
+                        output = result.stderr.strip()[:50]
+                        self.log_command(f"Command failed (exit {result.returncode}): {output[:30]}")
+                    else:
+                        output = result.stdout.strip()[:50] or f"Error (exit {result.returncode})"
+                        self.log_command(f"Command failed with exit code {result.returncode}")
+
+                # Format display output
                 fmt = command_config.get("display_format", ["Output:", "{output}"])
                 line1 = fmt[0] if len(fmt) > 0 else "Output:"
                 line2 = fmt[1].replace("{output}", output) if len(fmt) > 1 else output
-                
+
+                # Display result
                 if len(line2) <= self.config["hardware"]["lcd_cols"]:
                     self.display_text(line1, line2)
                     time.sleep(self.config["display"]["command_result_time"])
@@ -750,9 +862,21 @@ class VoiceLCDv2:
                     self.display_text(line1, "")
                     time.sleep(0.5)
                     self.scroll_text(line2, line=2, cycles=2)
-                    
+
+            except subprocess.TimeoutExpired:
+                error_msg = f"Timeout ({timeout}s)"
+                self.log_command(f"Command timed out after {timeout} seconds")
+                self.display_text("Command Error:", error_msg)
+                time.sleep(3)
+            except FileNotFoundError as e:
+                error_msg = "Script not found"
+                self.log_command(f"Command not found: {cmd}")
+                self.display_text("Command Error:", error_msg)
+                time.sleep(3)
             except Exception as e:
-                self.display_text("Command Error:", str(e)[:16])
+                error_msg = str(e)[:16]
+                self.log_command(f"Command exception: {e}")
+                self.display_text("Command Error:", error_msg)
                 time.sleep(3)
         
         elif action_type == "show_log_info":
