@@ -267,6 +267,54 @@
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh cool",
       "display_format": ["Govee", "Cool White"],
       "timeout": 10
+    },
+
+    "yellow light": {
+      "action": "run_command",
+      "aliases": ["make it yellow", "color yellow", "turn yellow", "change to yellow", "set yellow", "yellow color", "switch to yellow", "go yellow", "set color to yellow", "change color yellow", "turn the light yellow", "make the light yellow", "lights yellow", "yellow please", "set to yellow", "change it to yellow", "lights jello", "make it jello", "color jello", "yell low", "yell low lights"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color yellow",
+      "display_format": ["Govee Color", "Yellow"],
+      "timeout": 10
+    },
+
+    "purple light": {
+      "action": "run_command",
+      "aliases": ["make it purple", "color purple", "turn purple", "change to purple", "set purple", "purple color", "switch to purple", "go purple", "set color to purple", "change color purple", "turn the light purple", "make the light purple", "lights purple", "purple please", "set to purple", "change it to purple", "lights people", "make it people", "color people", "purp", "violet", "make it violet"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color purple",
+      "display_format": ["Govee Color", "Purple"],
+      "timeout": 10
+    },
+
+    "cyan light": {
+      "action": "run_command",
+      "aliases": ["make it cyan", "color cyan", "turn cyan", "change to cyan", "set cyan", "cyan color", "switch to cyan", "go cyan", "set color to cyan", "change color cyan", "turn the light cyan", "make the light cyan", "lights cyan", "cyan please", "set to cyan", "change it to cyan", "lights scion", "make it scion", "color scion", "sian", "science", "sign", "aqua", "make it aqua"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color cyan",
+      "display_format": ["Govee Color", "Cyan"],
+      "timeout": 10
+    },
+
+    "magenta light": {
+      "action": "run_command",
+      "aliases": ["make it magenta", "color magenta", "turn magenta", "change to magenta", "set magenta", "magenta color", "switch to magenta", "go magenta", "set color to magenta", "change color magenta", "turn the light magenta", "make the light magenta", "lights magenta", "magenta please", "set to magenta", "change it to magenta", "lights majenta", "make it majenta", "ma genta", "fuchsia", "make it fuchsia"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color magenta",
+      "display_format": ["Govee Color", "Magenta"],
+      "timeout": 10
+    },
+
+    "orange light": {
+      "action": "run_command",
+      "aliases": ["make it orange", "color orange", "turn orange", "change to orange", "set orange", "orange color", "switch to orange", "go orange", "set color to orange", "change color orange", "turn the light orange", "make the light orange", "lights orange", "orange please", "set to orange", "change it to orange", "lights arrange", "make it arrange", "color arrange", "oranges", "orange lights"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color orange",
+      "display_format": ["Govee Color", "Orange"],
+      "timeout": 10
+    },
+
+    "pink light": {
+      "action": "run_command",
+      "aliases": ["make it pink", "color pink", "turn pink", "change to pink", "set pink", "pink color", "switch to pink", "go pink", "set color to pink", "change color pink", "turn the light pink", "make the light pink", "lights pink", "pink please", "set to pink", "change it to pink", "lights bink", "make it bink", "color bink", "think", "ping", "rose", "make it rose"],
+      "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color pink",
+      "display_format": ["Govee Color", "Pink"],
+      "timeout": 10
     }
   },
   
