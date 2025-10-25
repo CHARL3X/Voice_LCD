@@ -19,13 +19,13 @@
     "short_text_display_time": 2.5,
     "command_result_time": 3.0,
     "heard_text_cycles": 1,
-    "startup_message": ["Voice LCD v2", "Say 'Pi' or 'Pie'"],
+    "startup_message": ["Voice LCD v2", "Say 'CJ'"],
     "listening_message": ["Ready", ""],
-    "error_message": ["Not recognized", "Try 'Pi help'"]
+    "error_message": ["Not recognized", "Try 'CJ help'"]
   },
   
   "voice": {
-    "wake_words": ["pi", "pie", "pied", "computer"],
+    "wake_words": ["cj", "computer"],
     "model_path": "/home/morph/Desktop/Voice_LCD/models/vosk-model-small-en-us-0.15",
     "show_all_transcriptions": true,
     "command_timeout": 8.0,
@@ -43,31 +43,31 @@
   "commands": {
     "show ip": {
       "action": "show_ip",
-      "aliases": ["show i p", "what's my ip", "ip address", "show address", "i p", "network", "my ip", "show network", "address", "shell i p", "shell ip", "shall i p", "shall ip", "phil ip", "show id"],
+      "aliases": ["show i p", "what's my ip", "ip address", "show address", "i p", "network", "my ip", "show network", "address", "shell i p", "shell ip", "shall i p", "shall ip", "phil ip", "show id", "network address", "local ip", "what's my address", "ip info", "my address", "local address", "pi address"],
       "display_format": ["IP Address:", "{ip}"]
     },
     
     "show time": {
-      "action": "show_time", 
-      "aliases": ["what time", "current time", "show clock", "time", "clock", "what's the time", "tell time"],
+      "action": "show_time",
+      "aliases": ["what time", "current time", "show clock", "time", "clock", "what's the time", "tell time", "what time is it", "tell me the time", "time now", "show me the time", "what's the time now", "time please", "check time"],
       "time_format": "%H:%M:%S",
       "date_format": "%m/%d/%y"
     },
     
     "tell joke": {
       "action": "tell_joke",
-      "aliases": ["tell a joke", "joke", "make me laugh", "funny", "be funny", "tell me a joke", "comedy", "laugh"],
+      "aliases": ["tell a joke", "joke", "make me laugh", "funny", "be funny", "tell me a joke", "comedy", "laugh", "another joke", "say something funny", "entertain me", "joke time", "got any jokes", "tell another joke", "say a joke", "something funny"],
       "scroll_duration": 8
     },
     
     "clear": {
       "action": "clear_display",
-      "aliases": ["clear screen", "clear display", "blank", "clean", "wipe", "reset display", "empty"]
+      "aliases": ["clear screen", "clear display", "blank", "clean", "wipe", "reset display", "empty", "blank screen", "clear it", "erase", "clear everything", "empty screen", "blank it", "wipe screen"]
     },
     
     "hello": {
       "action": "custom_message",
-      "aliases": ["hi", "hey", "greetings"],
+      "aliases": ["hi", "hey", "greetings", "what's up", "hey there", "howdy", "hi there", "hello there", "yo", "sup", "good morning", "good afternoon", "good evening"],
       "message": "Hello there! How can I help you today?",
       "scroll_duration": 5
     },
@@ -81,35 +81,35 @@
     
     "uptime": {
       "action": "run_command",
-      "aliases": ["how long running", "system uptime"],
+      "aliases": ["how long running", "system uptime", "how long up", "running time", "how long online", "been running", "time running", "how long has it been", "system running time"],
       "command": "uptime -p",
       "display_format": ["Uptime:", "{output}"]
     },
     
     "cpu temp": {
       "action": "run_command",
-      "aliases": ["cpu temperature", "how hot", "temperature"],
+      "aliases": ["cpu temperature", "how hot", "temperature", "system temp", "check temp", "how hot is it", "cpu heat", "processor temp", "temp check", "check temperature", "system temperature"],
       "command": "vcgencmd measure_temp | cut -d= -f2",
       "display_format": ["CPU Temp:", "{output}"]
     },
     
     "disk space": {
-      "action": "run_command", 
-      "aliases": ["disk usage", "storage space", "how much space"],
+      "action": "run_command",
+      "aliases": ["disk usage", "storage space", "how much space", "free space", "available space", "space left", "storage left", "disk free", "space available", "memory space", "how much storage"],
       "command": "df -h / | awk 'NR==2{print $4\" free\"}'",
       "display_format": ["Disk Space:", "{output}"]
     },
     
     "random number": {
       "action": "custom_message",
-      "aliases": ["pick a number", "random", "give me a number"],
+      "aliases": ["pick a number", "random", "give me a number", "number", "random num", "choose a number", "pick random", "random digit", "give number", "lucky number", "pick me a number"],
       "message": "Your number: {random_1_100}",
       "scroll_duration": 3
     },
     
     "shutdown": {
       "action": "run_command",
-      "aliases": ["power off", "turn off", "shut down"],
+      "aliases": ["power off", "turn off", "shut down", "power down", "shut it down", "turn off system", "power off system", "shutdown system", "halt", "shut down pi"],
       "command": "echo 'Shutdown in 10s!' && sleep 10 && sudo shutdown -h now",
       "display_format": ["Shutting down", "in 10 seconds..."],
       "confirmation_required": true
@@ -117,19 +117,19 @@
     
     "show logs": {
       "action": "show_log_info",
-      "aliases": ["log status", "check logs", "log info", "logs", "show log", "log size"],
+      "aliases": ["log status", "check logs", "log info", "logs", "show log", "log size", "check log", "log check", "show log status", "log file", "logging status", "view logs"],
       "display_format": ["Log Status:", "See console output"]
     },
     
     "clean logs": {
       "action": "clean_logs",
-      "aliases": ["rotate logs", "clear logs", "cleanup logs", "clean log", "fix logs"],
+      "aliases": ["rotate logs", "clear logs", "cleanup logs", "clean log", "fix logs", "delete logs", "remove logs", "purge logs", "log cleanup", "clean log files", "clear log"],
       "display_format": ["Cleaning logs", "Please wait..."]
     },
     
     "system status": {
       "action": "system_health",
-      "aliases": ["health check", "system info", "disk space", "status", "health", "system", "memory", "storage"],
+      "aliases": ["health check", "system info", "disk space", "status", "health", "system", "memory", "storage", "system check", "check system", "how's the system", "system report", "check status", "status check", "system overview", "system details"],
       "display_format": ["System Status:", "See details below"]
     },
     
@@ -142,48 +142,48 @@
     "pied": {
       "action": "custom_message",
       "aliases": ["pay", "paid"],
-      "message": "Did you mean 'Pi'? Try: Pi time, Pi weather, Pi help",
+      "message": "Did you mean 'CJ'? Try: CJ time, CJ weather, CJ help",
       "scroll_duration": 6
     },
     
     "help": {
       "action": "custom_message",
-      "aliases": ["commands", "what can you do", "options"],
+      "aliases": ["commands", "what can you do", "options", "help me", "what commands", "list commands", "show commands", "available commands", "command list", "what can I say", "show help", "need help"],
       "message": "Try: time, ip, weather, joke, status, clear, help",
       "scroll_duration": 8
     },
     
     "restart": {
       "action": "run_command",
-      "aliases": ["reboot", "restart system"],
+      "aliases": ["reboot", "restart system", "reboot system", "restart pi", "system restart", "reset system", "reboot pi", "restart the system"],
       "command": "echo 'Restarting in 5s!' && sleep 5 && sudo reboot",
       "display_format": ["Restarting", "in 5 seconds..."]
     },
     
     "volume up": {
-      "action": "run_command", 
-      "aliases": ["louder", "turn up"],
+      "action": "run_command",
+      "aliases": ["louder", "turn up", "increase volume", "raise volume", "volume higher", "make it louder", "turn up volume", "crank it up", "boost volume", "more volume"],
       "command": "amixer set PCM 10%+",
       "display_format": ["Volume", "Increased"]
     },
     
     "volume down": {
       "action": "run_command",
-      "aliases": ["quieter", "turn down"], 
+      "aliases": ["quieter", "turn down", "decrease volume", "lower volume", "volume lower", "make it quieter", "turn down volume", "quiet down", "reduce volume", "less volume"],
       "command": "amixer set PCM 10%-",
       "display_format": ["Volume", "Decreased"]
     },
     
     "wifi": {
       "action": "run_command",
-      "aliases": ["network status", "connection"],
+      "aliases": ["network status", "connection", "wifi status", "network info", "wifi info", "connected to", "wifi name", "network name", "what network", "check wifi"],
       "command": "iwgetid -r 2>/dev/null || echo 'Not connected'",
       "display_format": ["WiFi:", "{output}"]
     },
 
     "light on": {
       "action": "run_command",
-      "aliases": ["govee on", "lights on", "turn on light", "govee turn on", "turn on the light"],
+      "aliases": ["govee on", "lights on", "turn on light", "govee turn on", "turn on the light", "turn on lights", "turn the lights on", "turn the light on", "switch on lights", "switch on the lights", "switch lights on", "power on lights", "power on the lights", "flip on the lights", "flip the lights on", "hit the lights", "lights please", "turn lights on", "activate lights", "activate the lights", "light please", "power on light", "switch on light"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh on",
       "display_format": ["Govee Light", "ON"],
       "timeout": 10
@@ -191,7 +191,7 @@
 
     "light off": {
       "action": "run_command",
-      "aliases": ["govee off", "lights off", "turn off light", "govee turn off", "turn off the light"],
+      "aliases": ["govee off", "lights off", "turn off light", "govee turn off", "turn off the light", "turn off lights", "turn the lights off", "turn the light off", "switch off lights", "switch off the lights", "switch lights off", "power off lights", "power off the lights", "flip off the lights", "flip the lights off", "kill the lights", "shut off lights", "shut off the lights", "turn lights off", "deactivate lights", "deactivate the lights", "lights off please", "power off light", "switch off light"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh off",
       "display_format": ["Govee Light", "OFF"],
       "timeout": 10
@@ -199,7 +199,7 @@
 
     "bright": {
       "action": "run_command",
-      "aliases": ["full brightness", "maximum brightness", "brighten", "max brightness"],
+      "aliases": ["full brightness", "maximum brightness", "brighten", "max brightness", "brightest", "full bright", "crank it up", "brighten up", "light it up", "max bright", "turn it up", "brighten lights", "brighten the lights", "make it bright", "make it brighter", "one hundred percent", "100 percent"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh brightness 100",
       "display_format": ["Brightness", "100%"],
       "timeout": 10
@@ -207,7 +207,7 @@
 
     "dim": {
       "action": "run_command",
-      "aliases": ["low brightness", "dim light", "darker", "minimum"],
+      "aliases": ["low brightness", "dim light", "darker", "minimum", "dimmer", "lowest", "dim down", "turn down", "turn it down", "darker please", "dim the lights", "dim lights", "make it dim", "make it darker", "lower brightness", "low", "minimum brightness", "twenty percent", "20 percent"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh brightness 20",
       "display_format": ["Brightness", "20%"],
       "timeout": 10
@@ -215,7 +215,7 @@
 
     "medium brightness": {
       "action": "run_command",
-      "aliases": ["medium", "half brightness", "fifty percent"],
+      "aliases": ["medium", "half brightness", "fifty percent", "half bright", "50 percent", "mid brightness", "medium light", "middle brightness", "halfway", "half way", "medium bright", "normal brightness", "medium level", "set to medium", "medium lights"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh brightness 50",
       "display_format": ["Brightness", "50%"],
       "timeout": 10
@@ -223,7 +223,7 @@
 
     "red light": {
       "action": "run_command",
-      "aliases": ["make it red", "color red", "turn red"],
+      "aliases": ["make it red", "color red", "turn red", "change to red", "set red", "red color", "switch to red", "go red", "set color to red", "change color red", "turn the light red", "make the light red", "lights red", "red please", "set to red", "change it to red"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color red",
       "display_format": ["Govee Color", "Red"],
       "timeout": 10
@@ -231,7 +231,7 @@
 
     "blue light": {
       "action": "run_command",
-      "aliases": ["make it blue", "color blue", "turn blue"],
+      "aliases": ["make it blue", "color blue", "turn blue", "change to blue", "set blue", "blue color", "switch to blue", "go blue", "set color to blue", "change color blue", "turn the light blue", "make the light blue", "lights blue", "blue please", "set to blue", "change it to blue"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color blue",
       "display_format": ["Govee Color", "Blue"],
       "timeout": 10
@@ -239,7 +239,7 @@
 
     "green light": {
       "action": "run_command",
-      "aliases": ["make it green", "color green", "turn green"],
+      "aliases": ["make it green", "color green", "turn green", "change to green", "set green", "green color", "switch to green", "go green", "set color to green", "change color green", "turn the light green", "make the light green", "lights green", "green please", "set to green", "change it to green"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color green",
       "display_format": ["Govee Color", "Green"],
       "timeout": 10
@@ -247,7 +247,7 @@
 
     "white light": {
       "action": "run_command",
-      "aliases": ["make it white", "color white", "turn white"],
+      "aliases": ["make it white", "color white", "turn white", "change to white", "set white", "white color", "switch to white", "go white", "set color to white", "change color white", "turn the light white", "make the light white", "lights white", "white please", "set to white", "change it to white"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color white",
       "display_format": ["Govee Color", "White"],
       "timeout": 10
@@ -255,7 +255,7 @@
 
     "warm light": {
       "action": "run_command",
-      "aliases": ["warm white", "cozy light", "make it warm"],
+      "aliases": ["warm white", "cozy light", "make it warm", "warm", "set warm", "warm tone", "make it cozy", "cozy", "warm color", "set to warm", "change to warm", "go warm", "warm lights", "soft light", "soft white"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh warm",
       "display_format": ["Govee", "Warm White"],
       "timeout": 10
@@ -263,7 +263,7 @@
 
     "cool light": {
       "action": "run_command",
-      "aliases": ["cool white", "daylight", "make it cool"],
+      "aliases": ["cool white", "daylight", "make it cool", "cool", "set cool", "cool tone", "bright white", "cold light", "cool color", "set to cool", "change to cool", "go cool", "cool lights", "day light"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh cool",
       "display_format": ["Govee", "Cool White"],
       "timeout": 10
@@ -296,7 +296,7 @@
       "Sorry, I didn't catch that. Try again?",
       "Could you repeat that command?",
       "I'm not sure what you meant.",
-      "Command not recognized. Try 'Pi help' for options.",
+      "Command not recognized. Try 'CJ help' for options.",
       "Hmm, I didn't understand that."
     ]
   },

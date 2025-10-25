@@ -14,7 +14,7 @@
   },
   
   "voice": {
-    "wake_words": ["house", "home", "pi"],
+    "wake_words": ["house", "home", "cj"],
     "model_path": "/home/morph/Desktop/Voice_LCD/models/vosk-model-small-en-us-0.15",
     "show_all_transcriptions": true
   },

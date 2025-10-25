@@ -10,12 +10,12 @@
   "display": {
     "scroll_speed": 0.2,
     "short_text_display_time": 4.0,
-    "startup_message": ["Simple Voice LCD", "Say 'Pi help'"],
-    "listening_message": ["Listening...", "Try 'Pi time'"]
+    "startup_message": ["Simple Voice LCD", "Say 'CJ help'"],
+    "listening_message": ["Listening...", "Try 'CJ time'"]
   },
   
   "voice": {
-    "wake_words": ["pi", "pie"],
+    "wake_words": ["cj"],
     "model_path": "/home/morph/Desktop/Voice_LCD/models/vosk-model-small-en-us-0.15",
     "show_all_transcriptions": true
   },

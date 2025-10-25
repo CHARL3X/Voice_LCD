@@ -461,13 +461,16 @@ class VoiceLCDv2:
             hw = self.config.get("hardware", {})
             service_name = hw.get("oled_service_name", "oled.service")
 
-            result = subprocess.run(['sudo', 'systemctl', 'stop', service_name],
+            # Stop and mask to prevent auto-restart
+            subprocess.run(['sudo', 'systemctl', 'stop', service_name],
+                          capture_output=True, text=True, timeout=10)
+            result = subprocess.run(['sudo', 'systemctl', 'mask', service_name],
                                    capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
-                self.log_hardware(f"{service_name} stopped successfully")
+                self.log_hardware(f"{service_name} stopped and masked successfully")
                 return True
             else:
-                self.log_hardware(f"Failed to stop {service_name}: {result.stderr}")
+                self.log_hardware(f"Failed to mask {service_name}: {result.stderr}")
                 return False
         except Exception as e:
             self.log_hardware(f"Error stopping OLED service: {e}")
@@ -479,10 +482,14 @@ class VoiceLCDv2:
             hw = self.config.get("hardware", {})
             service_name = hw.get("oled_service_name", "oled.service")
 
+            # Unmask before starting to allow service to run
+            subprocess.run(['sudo', 'systemctl', 'unmask', service_name],
+                          capture_output=True, text=True, timeout=10)
+
             result = subprocess.run(['sudo', 'systemctl', 'start', service_name],
                                    capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
-                self.log_hardware(f"{service_name} restarted successfully")
+                self.log_hardware(f"{service_name} unmasked and restarted successfully")
                 return True
             else:
                 self.log_hardware(f"Failed to restart {service_name}: {result.stderr}")
