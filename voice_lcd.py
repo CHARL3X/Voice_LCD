@@ -1323,17 +1323,21 @@ class VoiceLCDv2:
         smart_wake_enabled = smart_wake_config.get("enabled", True)
         command_timeout = smart_wake_config.get("command_timeout", 8.0)
         partial_check_interval = smart_wake_config.get("partial_check_interval", 5)
+        debug_mode = smart_wake_config.get("debug_mode", False)
 
         # Initialize frame counter for audio viz updates
         frame_count = 0
         partial_frame_count = 0
         audio_update_interval = 2  # Update audio viz every N frames (reduce CPU)
+        audio_debug_interval = 30  # Show audio level every N frames in debug mode
 
         # Listening mode: "monitoring" or "active"
         listening_mode = "monitoring"
         wake_detected_time = None
 
         self.log(f"Smart wake detection: {'enabled' if smart_wake_enabled else 'disabled'}")
+        if debug_mode:
+            self.log("[DEBUG MODE ENABLED] - Verbose wake word detection logging active")
 
         try:
             while True:
@@ -1342,10 +1346,16 @@ class VoiceLCDv2:
                 # Calculate audio level for visualization
                 audio_rms = self.calculate_audio_rms(data)
 
+                # Debug: Show audio levels periodically
+                if debug_mode and frame_count % audio_debug_interval == 0:
+                    self.log(f"[DEBUG] Audio RMS: {audio_rms:.4f} | Mode: {listening_mode}")
+
                 # Ring buffer: Check for reset
                 if self.ring_buffer_enabled:
                     if self.should_reset_recognizer(audio_rms):
                         self.reset_speech_recognizer()
+                        if listening_mode == "active" and debug_mode:
+                            self.log("[DEBUG] Ring buffer reset - returning to monitoring mode")
                         listening_mode = "monitoring"  # Reset to monitoring mode
 
                 # Update audio visualization periodically (OLED only)
@@ -1365,20 +1375,38 @@ class VoiceLCDv2:
                         partial_frame_count += 1
                         if partial_frame_count >= partial_check_interval:
                             partial_frame_count = 0
+
+                            if debug_mode:
+                                self.log(f"[DEBUG] Frame #{frame_count}: Checking partial results...")
+
                             partial_result = self.rec.PartialResult()
                             if partial_result:
                                 partial_data = json.loads(partial_result)
                                 partial_text = partial_data.get('partial', '').strip()
 
-                                if partial_text and self.contains_wake_word(partial_text):
-                                    # Wake word detected! Switch to active mode
-                                    listening_mode = "active"
-                                    wake_detected_time = time.time()
-                                    self.log_transcription(f"Wake word detected in partial: '{partial_text}'")
+                                if debug_mode and partial_text:
+                                    self.log(f"[DEBUG] Partial result: '{partial_text}'")
 
-                                    # Show active listening on OLED
-                                    if self.display_mode == "OLED" and self.oled_display.has_animations:
-                                        self.oled_display.show_status_enhanced("LISTENING")
+                                if partial_text:
+                                    has_wake_word = self.contains_wake_word(partial_text)
+
+                                    if debug_mode:
+                                        self.log(f"[DEBUG] Checking for wake word in: '{partial_text}' → {has_wake_word}")
+
+                                    if has_wake_word:
+                                        # Wake word detected! Switch to active mode
+                                        listening_mode = "active"
+                                        wake_detected_time = time.time()
+                                        self.log_transcription(f"Wake word detected in partial: '{partial_text}'")
+
+                                        if debug_mode:
+                                            self.log(f"[DEBUG] >>> MODE SWITCH: monitoring → active")
+
+                                        # Show active listening on OLED
+                                        if self.display_mode == "OLED" and self.oled_display.has_animations:
+                                            self.oled_display.show_status_enhanced("LISTENING")
+                                elif debug_mode:
+                                    self.log(f"[DEBUG] Partial result empty")
 
                     elif listening_mode == "active":
                         # Active mode: Full processing for command
@@ -1390,20 +1418,36 @@ class VoiceLCDv2:
                                 # Log transcription
                                 self.log_transcription(f"Active transcription: '{text}'")
 
+                                if debug_mode:
+                                    self.log(f"[DEBUG] Full result received: '{text}'")
+
                                 # Check if still contains wake word
-                                if self.contains_wake_word(text):
+                                has_wake_word = self.contains_wake_word(text)
+
+                                if debug_mode:
+                                    self.log(f"[DEBUG] Contains wake word: {has_wake_word}")
+
+                                if has_wake_word:
                                     # Process command
+                                    if debug_mode:
+                                        self.log(f"[DEBUG] Processing command...")
                                     self.handle_command(text)
                                     listening_mode = "monitoring"  # Return to monitoring
+                                    if debug_mode:
+                                        self.log(f"[DEBUG] >>> MODE SWITCH: active → monitoring (command completed)")
                                 else:
                                     # False positive, return to monitoring
                                     self.log_transcription("No wake word in full result, returning to monitoring")
+                                    if debug_mode:
+                                        self.log(f"[DEBUG] >>> MODE SWITCH: active → monitoring (false positive)")
                                     self.rec.Reset()
                                     listening_mode = "monitoring"
 
                         # Timeout check
                         if wake_detected_time and (time.time() - wake_detected_time > command_timeout):
                             self.log_transcription(f"Command timeout ({command_timeout}s), returning to monitoring")
+                            if debug_mode:
+                                self.log(f"[DEBUG] >>> MODE SWITCH: active → monitoring (timeout)")
                             self.rec.Reset()
                             listening_mode = "monitoring"
 

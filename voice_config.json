@@ -42,7 +42,8 @@
       "_comment": "Only process full audio after detecting wake word in partial results",
       "enabled": true,
       "command_timeout": 8.0,
-      "partial_check_interval": 5
+      "partial_check_interval": 5,
+      "debug_mode": true
     }
   },
   
