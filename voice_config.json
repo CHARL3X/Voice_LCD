@@ -32,7 +32,7 @@
     "confidence_threshold": 0.3,
     "ring_buffer": {
       "_comment": "Ring buffer prevents audio processing delays after conversations",
-      "enabled": false,
+      "enabled": true,
       "silence_threshold": 0.01,
       "silence_duration": 3.0,
       "max_reset_interval": 30.0,
@@ -183,7 +183,7 @@
 
     "light on": {
       "action": "run_command",
-      "aliases": ["govee on", "lights on", "turn on light", "govee turn on", "turn on the light", "turn on lights", "turn the lights on", "turn the light on", "switch on lights", "switch on the lights", "switch lights on", "power on lights", "power on the lights", "flip on the lights", "flip the lights on", "hit the lights", "lights please", "turn lights on", "activate lights", "activate the lights", "light please", "power on light", "switch on light"],
+      "aliases": ["govee on", "lights on", "turn on light", "govee turn on", "turn on the light", "turn on lights", "turn the lights on", "turn the light on", "switch on lights", "switch on the lights", "switch lights on", "power on lights", "power on the lights", "flip on the lights", "flip the lights on", "hit the lights", "lights please", "turn lights on", "activate lights", "activate the lights", "light please", "power on light", "switch on light", "lights of", "light of", "turn of light", "turn of lights"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh on",
       "display_format": ["Govee Light", "ON"],
       "timeout": 10
@@ -199,7 +199,7 @@
 
     "bright": {
       "action": "run_command",
-      "aliases": ["full brightness", "maximum brightness", "brighten", "max brightness", "brightest", "full bright", "crank it up", "brighten up", "light it up", "max bright", "turn it up", "brighten lights", "brighten the lights", "make it bright", "make it brighter", "one hundred percent", "100 percent"],
+      "aliases": ["full brightness", "maximum brightness", "brighten", "max brightness", "brightest", "full bright", "crank it up", "brighten up", "light it up", "max bright", "turn it up", "brighten lights", "brighten the lights", "make it bright", "make it brighter", "one hundred percent", "100 percent", "bride", "full bride", "max bride", "make it bride", "right", "full right"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh brightness 100",
       "display_format": ["Brightness", "100%"],
       "timeout": 10
@@ -207,7 +207,7 @@
 
     "dim": {
       "action": "run_command",
-      "aliases": ["low brightness", "dim light", "darker", "minimum", "dimmer", "lowest", "dim down", "turn down", "turn it down", "darker please", "dim the lights", "dim lights", "make it dim", "make it darker", "lower brightness", "low", "minimum brightness", "twenty percent", "20 percent"],
+      "aliases": ["low brightness", "dim light", "darker", "minimum", "dimmer", "lowest", "dim down", "turn down", "turn it down", "darker please", "dim the lights", "dim lights", "make it dim", "make it darker", "lower brightness", "low", "minimum brightness", "twenty percent", "20 percent", "deem", "deem lights", "them lights", "din lights", "make it deem"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh brightness 20",
       "display_format": ["Brightness", "20%"],
       "timeout": 10
@@ -223,7 +223,7 @@
 
     "red light": {
       "action": "run_command",
-      "aliases": ["make it red", "color red", "turn red", "change to red", "set red", "red color", "switch to red", "go red", "set color to red", "change color red", "turn the light red", "make the light red", "lights red", "red please", "set to red", "change it to red"],
+      "aliases": ["make it red", "color red", "turn red", "change to red", "set red", "red color", "switch to red", "go red", "set color to red", "change color red", "turn the light red", "make the light red", "lights red", "red please", "set to red", "change it to red", "lights read", "light read", "make it read", "color read", "turn read", "change to read", "set read"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color red",
       "display_format": ["Govee Color", "Red"],
       "timeout": 10
@@ -231,7 +231,7 @@
 
     "blue light": {
       "action": "run_command",
-      "aliases": ["make it blue", "color blue", "turn blue", "change to blue", "set blue", "blue color", "switch to blue", "go blue", "set color to blue", "change color blue", "turn the light blue", "make the light blue", "lights blue", "blue please", "set to blue", "change it to blue"],
+      "aliases": ["make it blue", "color blue", "turn blue", "change to blue", "set blue", "blue color", "switch to blue", "go blue", "set color to blue", "change color blue", "turn the light blue", "make the light blue", "lights blue", "blue please", "set to blue", "change it to blue", "lights blew", "light blew", "make it blew", "color blew", "turn blew", "change to blew"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color blue",
       "display_format": ["Govee Color", "Blue"],
       "timeout": 10
@@ -247,7 +247,7 @@
 
     "white light": {
       "action": "run_command",
-      "aliases": ["make it white", "color white", "turn white", "change to white", "set white", "white color", "switch to white", "go white", "set color to white", "change color white", "turn the light white", "make the light white", "lights white", "white please", "set to white", "change it to white"],
+      "aliases": ["make it white", "color white", "turn white", "change to white", "set white", "white color", "switch to white", "go white", "set color to white", "change color white", "turn the light white", "make the light white", "lights white", "white please", "set to white", "change it to white", "lights wipe", "make it wipe", "color wipe", "lights wife"],
       "command": "/home/morph/Desktop/Voice_LCD/examples/custom_scripts/govee_control.sh color white",
       "display_format": ["Govee Color", "White"],
       "timeout": 10
