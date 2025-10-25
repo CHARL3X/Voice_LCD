@@ -348,6 +348,40 @@ class OLEDVoiceDisplay:
         # Display frame
         self.device.display(image)
 
+    def show_follow_up_mode(self):
+        """Show follow-up mode status with tech aesthetic"""
+        if not self.device:
+            return
+
+        if not self.has_animations:
+            # Fallback to simple display
+            self.show_status("Voice: Ready...")
+            return
+
+        # Create image for drawing
+        image = Image.new('1', (self.width, self.height), 0)
+        draw = ImageDraw.Draw(image)
+
+        # Tech aesthetic background
+        TechDrawing.draw_corner_brackets(draw, self.width, self.height, size=4)
+
+        # Status text
+        draw.text((8, 4), "READY", fill="white")
+
+        # Animated dots to indicate waiting
+        dot_count = int(time.time() * 2) % 4  # 0-3 dots, cycling
+        dots = "." * dot_count
+        draw.text((50, 4), dots + " " * (3 - dot_count), fill="white")
+
+        # Divider
+        TechDrawing.draw_angular_divider(draw, 4, 16, self.width - 8)
+
+        # Hint text
+        draw.text((6, 20), "Say command", fill="white")
+
+        # Display frame
+        self.device.display(image)
+
     def update_audio_level(self, audio_level):
         """Update stored audio level for visualization
 
@@ -386,6 +420,9 @@ class VoiceLCDv2:
         
         # Ring buffer initialization
         self.init_ring_buffer()
+
+        # Follow-up mode initialization
+        self.init_follow_up_mode()
 
         self.log("Voice LCD v2 initialized")
 
@@ -852,9 +889,72 @@ class VoiceLCDv2:
         
         if self.silence_start_time:
             stats["current_silence_duration"] = round(current_time - self.silence_start_time, 1)
-        
+
         return stats
-    
+
+    def init_follow_up_mode(self):
+        """Initialize follow-up mode state variables"""
+        followup_config = self.config.get("voice", {}).get("follow_up_mode", {})
+
+        self.followup_enabled = followup_config.get("enabled", False)
+        self.followup_timeout = followup_config.get("timeout_seconds", 15)
+        self.followup_max_errors = followup_config.get("max_errors", 2)
+        self.followup_show_oled = followup_config.get("show_on_oled", True)
+
+        # State tracking
+        self.followup_mode = "IDLE"  # IDLE or FOLLOW_UP
+        self.followup_last_command_time = None
+        self.followup_error_count = 0
+
+        if self.followup_enabled:
+            self.log(f"Follow-up mode enabled - {self.followup_timeout}s timeout, {self.followup_max_errors} max errors")
+        else:
+            self.log("Follow-up mode disabled")
+
+    def enter_follow_up_mode(self):
+        """Enter follow-up mode after successful command"""
+        if not self.followup_enabled:
+            return
+
+        self.followup_mode = "FOLLOW_UP"
+        self.followup_last_command_time = time.time()
+        self.followup_error_count = 0
+
+        self.log(f"Entered follow-up mode - {self.followup_timeout}s window")
+
+        # Show on OLED if enabled
+        if self.followup_show_oled and self.display_mode == "OLED":
+            if self.oled_display.has_animations:
+                self.oled_display.show_follow_up_mode()
+            else:
+                self.oled_display.show_status("Voice: Ready...")
+
+    def exit_follow_up_mode(self, reason="timeout"):
+        """Exit follow-up mode"""
+        if self.followup_mode == "IDLE":
+            return
+
+        self.followup_mode = "IDLE"
+        self.followup_last_command_time = None
+        self.followup_error_count = 0
+
+        self.log(f"Exited follow-up mode ({reason})")
+
+    def check_follow_up_timeout(self):
+        """Check if follow-up mode has timed out"""
+        if self.followup_mode != "FOLLOW_UP":
+            return False
+
+        if self.followup_last_command_time is None:
+            return False
+
+        elapsed = time.time() - self.followup_last_command_time
+        if elapsed >= self.followup_timeout:
+            self.exit_follow_up_mode("timeout")
+            return True
+
+        return False
+
     def display_text(self, line1="", line2=""):
         """Display text on LCD or OLED"""
         if not self.has_display:
@@ -1220,18 +1320,31 @@ class VoiceLCDv2:
                 time.sleep(0.3)
             action = command_config["action"]
             self.execute_action(action, command_config, text)
+
+            # Enter follow-up mode after successful command execution
+            self.enter_follow_up_mode()
+
+            # If in follow-up mode, return - display is handled by enter_follow_up_mode()
+            if self.followup_mode == "FOLLOW_UP":
+                return
         else:
             # No command found
-            error_msgs = self.config["messages"].get("error_responses", 
+            error_msgs = self.config["messages"].get("error_responses",
                                                    ["Command not recognized"])
             error_msg = random.choice(error_msgs)
             if self.display_mode == "OLED":
                 self.oled_display.show_status("Voice: Unknown")
                 time.sleep(0.5)
             self.scroll_text(error_msg, line=1, duration=3)
-        
-        # Return to ready state for OLED
-        if self.display_mode == "OLED":
+
+            # Track error in follow-up mode
+            if self.followup_mode == "FOLLOW_UP":
+                self.followup_error_count += 1
+                if self.followup_error_count >= self.followup_max_errors:
+                    self.exit_follow_up_mode("too many errors")
+
+        # Return to ready state for OLED (only if not in follow-up mode)
+        if self.followup_mode == "IDLE" and self.display_mode == "OLED":
             time.sleep(0.3)
             if self.oled_display.has_animations:
                 self.oled_display.show_status_enhanced("READY")
@@ -1283,6 +1396,10 @@ class VoiceLCDv2:
                 # Calculate audio level for visualization
                 audio_rms = self.calculate_audio_rms(data)
 
+                # Follow-up mode: Check for timeout
+                if self.followup_enabled:
+                    self.check_follow_up_timeout()
+
                 # Ring buffer: Check for reset
                 if self.ring_buffer_enabled:
                     if self.should_reset_recognizer(audio_rms):
@@ -1292,7 +1409,9 @@ class VoiceLCDv2:
                 if self.display_mode == "OLED" and self.oled_display.has_animations:
                     frame_count += 1
                     if frame_count % audio_update_interval == 0:
-                        self.oled_display.show_audio_visualization(audio_rms, status="READY")
+                        # Show different status in follow-up mode
+                        status = "FOLLOW-UP" if self.followup_mode == "FOLLOW_UP" else "READY"
+                        self.oled_display.show_audio_visualization(audio_rms, status=status)
                 
                 if self.rec.AcceptWaveform(data):
                     result = json.loads(self.rec.Result())
@@ -1340,13 +1459,41 @@ class VoiceLCDv2:
                         # Check for wake words
                         text_lower = text.lower()
                         wake_detected = any(wake_word in text_lower for wake_word in wake_words)
-                        
+
+                        # Handle command based on mode
                         if wake_detected:
+                            # Wake word detected - always handle (interrupts follow-up mode)
+                            if self.followup_mode == "FOLLOW_UP":
+                                self.log("Wake word detected - exiting follow-up mode")
+                                self.exit_follow_up_mode("wake word")
                             self.handle_command(text)
-                        
+                        elif self.followup_mode == "FOLLOW_UP":
+                            # Follow-up mode: try to match command without wake word
+                            self.log(f"Follow-up command attempt: '{text}'")
+                            command_name, command_config = self.find_matching_command(text)
+
+                            if command_config:
+                                # Command matched! Process it
+                                self.handle_command(text)
+                            else:
+                                # No match - increment error count
+                                self.followup_error_count += 1
+                                self.log(f"Follow-up error {self.followup_error_count}/{self.followup_max_errors}")
+
+                                if self.followup_error_count >= self.followup_max_errors:
+                                    self.exit_follow_up_mode("too many errors")
+                                else:
+                                    # Show brief error but stay in follow-up
+                                    if self.display_mode == "OLED":
+                                        if self.oled_display.has_animations:
+                                            self.oled_display.show_status_enhanced("NOT FOUND")
+                                        time.sleep(0.3)
+                                        self.oled_display.show_follow_up_mode()
+
                         # Return to ready state (don't overwrite transcriptions)
-                        # Only clear if no recent transcription
-                        time.sleep(0.5)
+                        # Only clear if no recent transcription and not in follow-up
+                        if self.followup_mode == "IDLE":
+                            time.sleep(0.5)
                         
         except KeyboardInterrupt:
             self.log("Stopped by user")

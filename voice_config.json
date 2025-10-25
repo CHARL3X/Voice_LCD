@@ -37,6 +37,13 @@
       "silence_duration": 3.0,
       "max_reset_interval": 30.0,
       "text_buffer_size": 50
+    },
+    "follow_up_mode": {
+      "_comment": "Contextual follow-up allows chaining commands without repeating wake word",
+      "enabled": true,
+      "timeout_seconds": 15,
+      "max_errors": 2,
+      "show_on_oled": true
     }
   },
   
