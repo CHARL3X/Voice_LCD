@@ -1371,6 +1371,9 @@ class VoiceLCDv2:
                 # SMART WAKE DETECTION MODE
                 if smart_wake_enabled:
                     if listening_mode == "monitoring":
+                        # CRITICAL: Feed audio to Vosk so it can produce partial results
+                        self.rec.AcceptWaveform(data)
+
                         # Check partial results for wake word (lightweight)
                         partial_frame_count += 1
                         if partial_frame_count >= partial_check_interval:
